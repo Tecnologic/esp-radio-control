@@ -20,7 +20,17 @@ static const char *html_page =
 "<style>"
 "body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; background: #f5f5f5; }"
 "h1 { color: #333; }"
+"h2 { color: #555; font-size: 1.1em; margin-top: 25px; border-bottom: 2px solid #4CAF50; padding-bottom: 5px; }"
 ".form-group { margin: 15px 0; background: white; padding: 15px; border-radius: 5px; }"
+".status-section { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #2196F3; }"
+".status-item { margin: 10px 0; display: flex; justify-content: space-between; align-items: center; }"
+".status-label { font-weight: bold; color: #555; }"
+".status-value { color: #2196F3; font-family: monospace; }"
+".status-connected { color: #4CAF50; }"
+".status-disconnected { color: #f44336; }"
+".led-pattern { margin: 15px 0; padding: 10px; background: #f9f9f9; border-left: 3px solid #FF9800; border-radius: 3px; }"
+".led-state { font-weight: bold; color: #FF9800; }"
+".pattern-timing { font-size: 0.9em; color: #666; font-family: monospace; }"
 "label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }"
 "input[type='text'], input[type='number'], select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }"
 "button { background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 10px; }"
@@ -31,6 +41,50 @@ static const char *html_page =
 "</head>"
 "<body>"
 "<h1>ESP-NOW Radio Control Config</h1>"
+""
+"<div class='status-section'>"
+"<h2>Connection Status</h2>"
+"<div class='status-item'>"
+"<span class='status-label'>Peer Connection:</span>"
+"<span id='connStatus' class='status-value status-disconnected'>Disconnected</span>"
+"</div>"
+"<div class='status-item'>"
+"<span class='status-label'>Signal Strength:</span>"
+"<span id='rssiValue' class='status-value'>N/A</span>"
+"</div>"
+"<div class='status-item'>"
+"<span class='status-label'>LED Pattern:</span>"
+"<span id='ledPattern' class='status-value'>Initializing...</span>"
+"</div>"
+"</div>"
+""
+"<div class='status-section'>"
+"<h2>LED Indicators</h2>"
+"<p style='color: #666; font-size: 0.9em;'>The status LED provides feedback about device operation:</p>"
+"<div class='led-pattern'>"
+"<div class='led-state'>State A: Disconnected + No Webserver</div>"
+"<div class='pattern-timing'>Pattern: ■ 100ms | ■ 100ms | ■ 100ms | ■ 300ms (600ms cycle)</div>"
+"<div style='color: #666; font-size: 0.9em;'>ESP-NOW not connected, webserver is off</div>"
+"</div>"
+"<div class='led-pattern'>"
+"<div class='led-state'>State B: Connected + No Webserver</div>"
+"<div class='pattern-timing'>Pattern: ■ 500ms | ■ 500ms (1000ms cycle)</div>"
+"<div style='color: #666; font-size: 0.9em;'>Receiving packets from peer, webserver is off</div>"
+"</div>"
+"<div class='led-pattern'>"
+"<div class='led-state'>State C: Disconnected + Webserver On</div>"
+"<div class='pattern-timing'>Pattern: ■ 250ms | ■ 250ms (500ms cycle)</div>"
+"<div style='color: #666; font-size: 0.9em;'>No packets received, in configuration mode</div>"
+"</div>"
+"<div class='led-pattern'>"
+"<div class='led-state'>State D: Connected + Webserver On</div>"
+"<div class='pattern-timing'>Pattern: ■ 80ms | ■ 80ms | ■ 80ms | ■ 80ms | ■ 80ms | ■ 200ms (440ms cycle)</div>"
+"<div style='color: #666; font-size: 0.9em;'>Receiving packets and in configuration mode</div>"
+"</div>"
+"</div>"
+""
+"<div class='status-section'>"
+"<h2>Configuration</h2>"
 "<form id='settingsForm'>"
 "<div class='form-group'>"
 "<label>Device Role:</label>"
@@ -73,7 +127,31 @@ static const char *html_page =
 "<button type='submit'>Save Settings</button>"
 "<button type='reset' class='reset'>Reset to Defaults</button>"
 "</form>"
+"</div>"
+""
 "<script>"
+"// Update status display every 500ms"
+"setInterval(function() {"
+"  fetch('/api/status')"
+"  .then(r => r.json())"
+"  .then(d => {"
+"    const connStatus = document.getElementById('connStatus');"
+"    const rssiValue = document.getElementById('rssiValue');"
+"    const ledPattern = document.getElementById('ledPattern');"
+"    "
+"    if (d.connected) {"
+"      connStatus.textContent = 'Connected';"
+"      connStatus.className = 'status-value status-connected';"
+"      rssiValue.textContent = d.rssi + ' dBm';"
+"    } else {"
+"      connStatus.textContent = 'Disconnected';"
+"      connStatus.className = 'status-value status-disconnected';"
+"      rssiValue.textContent = 'N/A';"
+"    }"
+"  })"
+"  .catch(e => console.log('Status fetch error'));"
+"}, 500);"
+""
 "document.getElementById('settingsForm').addEventListener('submit', function(e) {"
 "  e.preventDefault();"
 "  const data = new FormData(this);"
@@ -135,6 +213,22 @@ static esp_err_t handler_get_settings(httpd_req_t *req) {
     return httpd_resp_send(req, response, strlen(response));
 }
 
+static esp_err_t handler_get_status(httpd_req_t *req) {
+    char response[256];
+    connection_status_t status = get_connection_status();
+    
+    snprintf(response, sizeof(response),
+             "{"
+             "\"connected\":%d,"
+             "\"rssi\":%d,"
+             "\"last_packet\":%lu"
+             "}",
+             status.connected, status.rssi, status.last_packet);
+
+    httpd_resp_set_type(req, "application/json");
+    return httpd_resp_send(req, response, strlen(response));
+}
+
 static esp_err_t handler_post_settings(httpd_req_t *req) {
     char buffer[1024] = {0};
     int ret = httpd_req_recv(req, buffer, sizeof(buffer) - 1);
@@ -177,7 +271,7 @@ void webserver_start(device_settings_t *settings) {
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.max_open_sockets = 2;
-    config.max_uri_handlers = 4;
+    config.max_uri_handlers = 5;
 
     if (httpd_start(&http_server, &config) != ESP_OK) {
         ESP_LOGE(TAG, "Failed to start webserver");
@@ -207,6 +301,14 @@ void webserver_start(device_settings_t *settings) {
         .user_ctx = NULL
     };
     httpd_register_uri_handler(http_server, &uri_post);
+
+    httpd_uri_t uri_status = {
+        .uri = "/api/status",
+        .method = HTTP_GET,
+        .handler = handler_get_status,
+        .user_ctx = NULL
+    };
+    httpd_register_uri_handler(http_server, &uri_status);
 
     ESP_LOGI(TAG, "Webserver started on http://192.168.4.1");
 }

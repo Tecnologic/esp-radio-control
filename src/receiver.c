@@ -58,6 +58,12 @@ static void recv_cb(const esp_now_recv_info_t *info, const uint8_t *data, int le
     if (len == sizeof(control_packet_t)) {
         memcpy((void *)&last_pkt, data, sizeof(last_pkt));
         have_pkt = 1;
+        // Update connection status with RSSI from the received packet
+        if (info && info->rx_ctrl) {
+            update_connection_status(true, info->rx_ctrl->rssi);
+        } else {
+            update_connection_status(true, -120);
+        }
     }
 }
 
@@ -71,6 +77,12 @@ static void receiver_task(void *arg) {
     const uint8_t light_pins[4] = {PIN_LIGHT_OUT1, PIN_LIGHT_OUT2, PIN_LIGHT_OUT3, PIN_LIGHT_OUT4};
     
     while (1) {
+        // Check for connection timeout (no packet received for 1 second)
+        TickType_t now = xTaskGetTickCount();
+        if (get_connection_status().connected && (now - get_connection_status().last_packet > pdMS_TO_TICKS(1000))) {
+            update_connection_status(false, -120);
+        }
+        
         if (have_pkt) {
             rate_scale = last_pkt.lights & 0x08 ? RATE_HIGH_SCALE : RATE_LOW_SCALE;
             uint32_t us_throttle = map_adc_to_us(last_pkt.throttle, rate_scale);

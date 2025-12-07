@@ -3,6 +3,8 @@
 #define COMMON_H
 
 #include <stdint.h>
+#include <stdbool.h>
+#include "freertos/FreeRTOS.h"
 
 // ESP-NOW configuration
 #ifndef ESP_NOW_CHANNEL
@@ -26,6 +28,12 @@
 #define PIN_LIGHT_BTN2 7        // GPIO7 - Light 2 button
 #define PIN_LIGHT_BTN3 8        // GPIO8 - Light 3 button
 #define PIN_LIGHT_BTN4 9        // GPIO9 - Light 4 button
+
+// Light output pins
+#define PIN_LIGHT_OUT1 10       // GPIO10 - Light 1 output
+#define PIN_LIGHT_OUT2 11       // GPIO11 - Light 2 output
+#define PIN_LIGHT_OUT3 12       // GPIO12 - Light 3 output
+#define PIN_LIGHT_OUT4 13       // GPIO13 - Light 4 output
 
 // ADC channels (ESP32-S2 has ADC1 and ADC2)
 // Common ADC pins on S2 Mini: GPIO1-GPIO10 (ADC1), GPIO11-GPIO20 (ADC2)
@@ -58,9 +66,20 @@ typedef enum {
     ROLE_SENDER = 1
 } device_role_t;
 
+// Connection status
+typedef struct {
+    bool connected;          // Is peer connected
+    int8_t rssi;            // Signal strength (-120 to 0 dBm)
+    uint32_t last_packet;   // Timestamp of last packet
+} connection_status_t;
+
 // Shared initialization functions
 void common_wifi_init(void);
 void common_espnow_init(void);
+
+// Status functions
+connection_status_t get_connection_status(void);
+void update_connection_status(bool connected, int8_t rssi);
 
 // Utility functions
 uint32_t servo_us_to_duty(uint32_t us);

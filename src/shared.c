@@ -6,10 +6,28 @@
 #include "esp_now.h"
 #include "esp_event.h"
 #include "esp_netif.h"
+#include <string.h>
 
 static const char *TAG = "shared";
 
 const uint8_t PEER_BROADCAST[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
+// Connection status tracking
+static connection_status_t conn_status = {
+    .connected = false,
+    .rssi = -120,
+    .last_packet = 0
+};
+
+connection_status_t get_connection_status(void) {
+    return conn_status;
+}
+
+void update_connection_status(bool connected, int8_t rssi) {
+    conn_status.connected = connected;
+    conn_status.rssi = rssi;
+    conn_status.last_packet = xTaskGetTickCount();
+}
 
 void common_wifi_init(void) {
     ESP_ERROR_CHECK(esp_netif_init());

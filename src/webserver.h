@@ -3,6 +3,7 @@
 #define WEBSERVER_H
 
 #include "settings.h"
+#include "common.h"
 
 // Start webserver (must be called from a task context)
 void webserver_start(device_settings_t *settings);

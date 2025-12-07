@@ -51,9 +51,43 @@ static void button_init(void) {
     ESP_ERROR_CHECK(gpio_config(&io));
 }
 
+// LED pattern controller for 4 states
+static void led_update(void) {
+    TickType_t now = xTaskGetTickCount();
+    connection_status_t conn_status = get_connection_status();
+    bool webserver_active = webserver_is_running();
+    
+    // 4 states:
+    // A: Disconnected (no ESP-NOW packets), Webserver off    -> Double blink (100ms on, 100ms off, 100ms on, 300ms off)
+    // B: Connected (receiving packets), Webserver off        -> Slow blink (500ms on, 500ms off)
+    // C: Disconnected (no ESP-NOW packets), Webserver on     -> Fast blink (250ms on, 250ms off)
+    // D: Connected (receiving packets), Webserver on         -> Triple blink (80ms on, 80ms off x3, 200ms off)
+    
+    bool led_on = false;
+    
+    if (!conn_status.connected && !webserver_active) {
+        // State A: Double blink (600ms cycle)
+        uint32_t cycle = now % 600;
+        led_on = (cycle < 100) || (cycle >= 200 && cycle < 300);
+    } else if (conn_status.connected && !webserver_active) {
+        // State B: Slow blink (1000ms cycle)
+        uint32_t cycle = now % 1000;
+        led_on = (cycle < 500);
+    } else if (!conn_status.connected && webserver_active) {
+        // State C: Fast blink (500ms cycle)
+        uint32_t cycle = now % 500;
+        led_on = (cycle < 250);
+    } else {
+        // State D: Triple blink (440ms cycle)
+        uint32_t cycle = now % 440;
+        led_on = (cycle < 80) || (cycle >= 160 && cycle < 240);
+    }
+    
+    led_set(led_on);
+}
+
 static void control_task(void *arg) {
     uint32_t button_press_count = 0;
-    uint32_t button_press_start = 0;
     uint8_t light_states = 0; // Bit mask for 4 lights
     uint8_t light_btn_state[4] = {1, 1, 1, 1}; // Track previous state of each light button
     const uint8_t light_pins[4] = {PIN_LIGHT_BTN1, PIN_LIGHT_BTN2, PIN_LIGHT_BTN3, PIN_LIGHT_BTN4};
@@ -63,39 +97,26 @@ static void control_task(void *arg) {
         if (gpio_get_level(PIN_USER_BUTTON) == 0) {
             // Button pressed
             if (button_press_count == 0) {
-                button_press_start = xTaskGetTickCount();
+                // Start counting
             }
             button_press_count++;
 
-            // Long press: start webserver
+            // Long press: toggle webserver
             if (button_press_count > 300) { // ~3 seconds at 10ms poll
-                if (!webserver_is_running()) {
+                if (webserver_is_running()) {
+                    ESP_LOGI(TAG, "Stopping webserver...");
+                    webserver_stop();
+                } else {
                     ESP_LOGI(TAG, "Starting webserver...");
-                    // Pause active role
-                    if (is_running) {
-                        if (current_settings.device_role == ROLE_SENDER) {
-                            sender_stop();
-                        } else {
-                            receiver_stop();
-                        }
-                        is_running = false;
-                    }
                     webserver_start(&current_settings);
-                    led_set(true); // LED on during config
                 }
                 button_press_count = 0;
             }
         } else {
             // Button released
             if (button_press_count > 0 && button_press_count < 300) {
-                // Short press: toggle role
-                ESP_LOGI(TAG, "Short press: toggling role");
-                if (webserver_is_running()) {
-                    webserver_stop();
-                    led_set(false);
-                }
-                current_settings.device_role = (current_settings.device_role == ROLE_SENDER) ? ROLE_RECEIVER : ROLE_SENDER;
-                settings_save(&current_settings);
+                // Short press: do nothing (removed role toggle)
+                ESP_LOGI(TAG, "Short press detected");
             }
             button_press_count = 0;
         }
@@ -128,9 +149,21 @@ static void control_task(void *arg) {
                 }
                 is_running = true;
             }
-            // LED blinks to indicate active
-            led_set(xTaskGetTickCount() % 500 < 250);
+        } else {
+            // Webserver active: stop ESP-NOW operation if it was running
+            if (is_running) {
+                ESP_LOGI(TAG, "Stopping ESP-NOW (webserver active)");
+                if (current_settings.device_role == ROLE_SENDER) {
+                    sender_stop();
+                } else {
+                    receiver_stop();
+                }
+                is_running = false;
+            }
         }
+
+        // Update LED pattern based on connection state and webserver status
+        led_update();
 
         vTaskDelay(pdMS_TO_TICKS(10));
     }
