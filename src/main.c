@@ -51,36 +51,31 @@ static void button_init(void) {
     ESP_ERROR_CHECK(gpio_config(&io));
 }
 
-// LED pattern controller for 4 states
+// LED pattern controller for 3 states
 static void led_update(void) {
     TickType_t now = xTaskGetTickCount();
     connection_status_t conn_status = get_connection_status();
     bool webserver_active = webserver_is_running();
     
-    // 4 states:
-    // A: Disconnected (no ESP-NOW packets), Webserver off    -> Double blink (100ms on, 100ms off, 100ms on, 300ms off)
-    // B: Connected (receiving packets), Webserver off        -> Slow blink (500ms on, 500ms off)
-    // C: Disconnected (no ESP-NOW packets), Webserver on     -> Fast blink (250ms on, 250ms off)
-    // D: Connected (receiving packets), Webserver on         -> Triple blink (80ms on, 80ms off x3, 200ms off)
+    // 3 states:
+    // A: Disconnected (no ESP-NOW packets), Webserver off    -> Slow blink (1000ms on, 1000ms off)
+    // B: Connected (receiving packets), Webserver off        -> Fast blink (200ms on, 200ms off)
+    // C: Webserver on (regardless of connection)             -> Double blink (200ms on, 100ms off, 200ms on, 500ms off)
     
     bool led_on = false;
     
-    if (!conn_status.connected && !webserver_active) {
-        // State A: Double blink (600ms cycle)
-        uint32_t cycle = now % 600;
-        led_on = (cycle < 100) || (cycle >= 200 && cycle < 300);
-    } else if (conn_status.connected && !webserver_active) {
-        // State B: Slow blink (1000ms cycle)
-        uint32_t cycle = now % 1000;
-        led_on = (cycle < 500);
-    } else if (!conn_status.connected && webserver_active) {
-        // State C: Fast blink (500ms cycle)
-        uint32_t cycle = now % 500;
-        led_on = (cycle < 250);
+    if (webserver_active) {
+        // State C: Double blink (1000ms cycle = 100 ticks)
+        uint32_t cycle = now % 100;
+        led_on = (cycle < 20) || (cycle >= 30 && cycle < 50);
+    } else if (conn_status.connected) {
+        // State B: Fast blink (400ms cycle = 40 ticks)
+        uint32_t cycle = now % 40;
+        led_on = (cycle < 20);
     } else {
-        // State D: Triple blink (440ms cycle)
-        uint32_t cycle = now % 440;
-        led_on = (cycle < 80) || (cycle >= 160 && cycle < 240);
+        // State A: Slow blink (2000ms cycle = 200 ticks)
+        uint32_t cycle = now % 200;
+        led_on = (cycle < 100);
     }
     
     led_set(led_on);
