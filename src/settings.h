@@ -8,10 +8,8 @@
 typedef struct {
     uint8_t peer_mac[6];          // Target peer MAC address
     uint8_t channel;              // ESP-NOW channel (1-13)
-    uint16_t throttle_min;        // Min ADC value for throttle
-    uint16_t throttle_max;        // Max ADC value for throttle
-    uint16_t steering_min;        // Min ADC value for steering
-    uint16_t steering_max;        // Max ADC value for steering
+    uint16_t ch_min[6];           // Min ADC value for each proportional channel
+    uint16_t ch_max[6];           // Max ADC value for each proportional channel
     uint8_t rate_mode;            // 0=low, 1=high
     uint8_t device_role;          // 0=receiver, 1=sender
     bool is_configured;           // Has been configured at least once

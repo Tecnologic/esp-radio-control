@@ -37,21 +37,23 @@ static void ledc_servo_init(void) {
     };
     ESP_ERROR_CHECK(ledc_timer_config(&timer));
 
-    ledc_channel_config_t ch1 = {
-        .gpio_num = PIN_SERVO_THROTTLE,
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .channel = LEDC_CHANNEL_0,
-        .intr_type = LEDC_INTR_DISABLE,
-        .timer_sel = LEDC_TIMER_0,
-        .duty = 0,
-        .hpoint = 0,
-    };
-    ledc_channel_config_t ch2 = ch1;
-    ch2.gpio_num = PIN_SERVO_STEERING;
-    ch2.channel = LEDC_CHANNEL_1;
-    ESP_ERROR_CHECK(ledc_channel_config(&ch1));
-    ESP_ERROR_CHECK(ledc_channel_config(&ch2));
-    ESP_LOGI(TAG, "LEDC servos initialized");
+    // Configure 6 PWM channels on LEDC timer 0
+    int gpio_pins[6] = {PIN_SERVO_CH1, PIN_SERVO_CH2, PIN_SERVO_CH3, 
+                        PIN_SERVO_CH4, PIN_SERVO_CH5, PIN_SERVO_CH6};
+    
+    for (int i = 0; i < 6; i++) {
+        ledc_channel_config_t ch = {
+            .gpio_num = gpio_pins[i],
+            .speed_mode = LEDC_LOW_SPEED_MODE,
+            .channel = (ledc_channel_t)i,
+            .intr_type = LEDC_INTR_DISABLE,
+            .timer_sel = LEDC_TIMER_0,
+            .duty = 0,
+            .hpoint = 0,
+        };
+        ESP_ERROR_CHECK(ledc_channel_config(&ch));
+    }
+    ESP_LOGI(TAG, "LEDC servos initialized (6 channels on GPIO4,5,12,13,14,11)");
 }
 
 static void recv_cb(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
@@ -85,15 +87,14 @@ static void receiver_task(void *arg) {
         
         if (have_pkt) {
             rate_scale = last_pkt.lights & 0x08 ? RATE_HIGH_SCALE : RATE_LOW_SCALE;
-            uint32_t us_throttle = map_adc_to_us(last_pkt.throttle, rate_scale);
-            uint32_t us_steering = map_adc_to_us(last_pkt.steering, rate_scale);
-            uint32_t duty_thr = servo_us_to_duty(us_throttle);
-            uint32_t duty_ste = servo_us_to_duty(us_steering);
-
-            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty_thr);
-            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
-            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, duty_ste);
-            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+            
+            // Set PWM duty for all 6 proportional channels
+            for (int i = 0; i < 6; i++) {
+                uint32_t us = map_adc_to_us(last_pkt.ch[i], rate_scale);
+                uint32_t duty = servo_us_to_duty(us);
+                ledc_set_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)i, duty);
+                ledc_update_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)i);
+            }
 
             // Set light outputs based on packet bits 0-3
             for (int i = 0; i < 4; i++) {
@@ -122,3 +123,8 @@ void receiver_stop(void) {
         ESP_LOGI(TAG, "Receiver stopped");
     }
 }
+
+control_packet_t get_last_control_packet(void) {
+    return (control_packet_t)last_pkt;
+}
+

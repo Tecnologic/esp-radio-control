@@ -4,6 +4,7 @@
 #include "nvs_flash.h"
 #include "nvs.h"
 #include <string.h>
+#include <stdio.h>
 
 static const char *TAG = "settings";
 static const char *NVS_NAMESPACE = "radio";
@@ -23,10 +24,11 @@ void settings_get_defaults(device_settings_t *settings) {
     // Default broadcast MAC (all FF for broadcast)
     memset(settings->peer_mac, 0xFF, 6);
     settings->channel = 1;
-    settings->throttle_min = 0;
-    settings->throttle_max = 4095;
-    settings->steering_min = 0;
-    settings->steering_max = 4095;
+    // Default calibration: full ADC range (0-4095) for all 6 channels
+    for (int i = 0; i < 6; i++) {
+        settings->ch_min[i] = 0;
+        settings->ch_max[i] = 4095;
+    }
     settings->rate_mode = 0; // low rate
     settings->device_role = 0; // receiver by default
     settings->is_configured = false;
@@ -58,19 +60,19 @@ void settings_load(device_settings_t *settings) {
     nvs_get_u8(handle, "channel", &settings->channel);
     if (settings->channel == 0) settings->channel = 1;
     
-    nvs_get_u16(handle, "thr_min", &settings->throttle_min);
-    if (settings->throttle_min == 0 && nvs_get_u16(handle, "thr_min", &settings->throttle_min) != ESP_OK) {
-        settings->throttle_min = 0;
+    // Load calibration for 6 channels
+    for (int i = 0; i < 6; i++) {
+        char key_min[16], key_max[16];
+        snprintf(key_min, sizeof(key_min), "ch%d_min", i + 1);
+        snprintf(key_max, sizeof(key_max), "ch%d_max", i + 1);
+        
+        if (nvs_get_u16(handle, key_min, &settings->ch_min[i]) != ESP_OK) {
+            settings->ch_min[i] = 0;
+        }
+        if (nvs_get_u16(handle, key_max, &settings->ch_max[i]) != ESP_OK) {
+            settings->ch_max[i] = 4095;
+        }
     }
-    
-    nvs_get_u16(handle, "thr_max", &settings->throttle_max);
-    if (settings->throttle_max == 0) settings->throttle_max = 4095;
-    
-    nvs_get_u16(handle, "str_min", &settings->steering_min);
-    if (settings->steering_min == 0) settings->steering_min = 0;
-    
-    nvs_get_u16(handle, "str_max", &settings->steering_max);
-    if (settings->steering_max == 0) settings->steering_max = 4095;
     
     nvs_get_u8(handle, "rate_mode", &settings->rate_mode);
     nvs_get_u8(handle, "dev_role", &settings->device_role);
@@ -89,10 +91,16 @@ void settings_save(const device_settings_t *settings) {
 
     ESP_ERROR_CHECK(nvs_set_blob(handle, "peer_mac", settings->peer_mac, 6));
     ESP_ERROR_CHECK(nvs_set_u8(handle, "channel", settings->channel));
-    ESP_ERROR_CHECK(nvs_set_u16(handle, "thr_min", settings->throttle_min));
-    ESP_ERROR_CHECK(nvs_set_u16(handle, "thr_max", settings->throttle_max));
-    ESP_ERROR_CHECK(nvs_set_u16(handle, "str_min", settings->steering_min));
-    ESP_ERROR_CHECK(nvs_set_u16(handle, "str_max", settings->steering_max));
+    
+    // Save calibration for 6 channels
+    for (int i = 0; i < 6; i++) {
+        char key_min[16], key_max[16];
+        snprintf(key_min, sizeof(key_min), "ch%d_min", i + 1);
+        snprintf(key_max, sizeof(key_max), "ch%d_max", i + 1);
+        ESP_ERROR_CHECK(nvs_set_u16(handle, key_min, settings->ch_min[i]));
+        ESP_ERROR_CHECK(nvs_set_u16(handle, key_max, settings->ch_max[i]));
+    }
+    
     ESP_ERROR_CHECK(nvs_set_u8(handle, "rate_mode", settings->rate_mode));
     ESP_ERROR_CHECK(nvs_set_u8(handle, "dev_role", settings->device_role));
     ESP_ERROR_CHECK(nvs_set_u8(handle, "configured", settings->is_configured ? 1 : 0));

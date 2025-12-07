@@ -20,7 +20,7 @@ static const char *html_page =
 "<head>"
 "<meta charset='UTF-8'>"
 "<meta name='viewport' content='width=device-width, initial-scale=1.0'>"
-"<title>ESP-NOW Radio Control</title>"
+"<title>ESP Radio Control</title>"
 "<style>"
 "body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; background: #f5f5f5; }"
 "h1 { color: #333; }"
@@ -44,7 +44,7 @@ static const char *html_page =
 "</style>"
 "</head>"
 "<body>"
-"<h1>ESP-NOW Radio Control Config</h1>"
+"<h1>ESP Radio Control Config</h1>"
 ""
 "<div class='status-section'>"
 "<h2>Connection Status</h2>"
@@ -88,7 +88,86 @@ static const char *html_page =
 "</div>"
 ""
 "<div class='status-section'>"
-"<h2>Configuration</h2>"
+"<h2>Channel & Light Feedback</h2>"
+"<p style='color: #666; font-size: 0.9em;'>Live input values from sender device:</p>"
+"<div id='channelFeedback'>"
+"<div style='margin: 12px 0;'>"
+"<div style='display: flex; justify-content: space-between; margin-bottom: 4px;'>"
+"<span style='font-weight: bold; color: #555;'>Channel 1:</span>"
+"<span id='ch1_val' style='font-family: monospace; color: #2196F3;'>0/4095</span>"
+"</div>"
+"<div style='background: #e0e0e0; height: 20px; border-radius: 3px; overflow: hidden;'>"
+"<div id='ch1_bar' style='background: #2196F3; height: 100%; width: 0%; transition: width 0.1s;'></div>"
+"</div>"
+"</div>"
+"<div style='margin: 12px 0;'>"
+"<div style='display: flex; justify-content: space-between; margin-bottom: 4px;'>"
+"<span style='font-weight: bold; color: #555;'>Channel 2:</span>"
+"<span id='ch2_val' style='font-family: monospace; color: #2196F3;'>0/4095</span>"
+"</div>"
+"<div style='background: #e0e0e0; height: 20px; border-radius: 3px; overflow: hidden;'>"
+"<div id='ch2_bar' style='background: #2196F3; height: 100%; width: 0%; transition: width 0.1s;'></div>"
+"</div>"
+"</div>"
+"<div style='margin: 12px 0;'>"
+"<div style='display: flex; justify-content: space-between; margin-bottom: 4px;'>"
+"<span style='font-weight: bold; color: #555;'>Channel 3:</span>"
+"<span id='ch3_val' style='font-family: monospace; color: #2196F3;'>0/4095</span>"
+"</div>"
+"<div style='background: #e0e0e0; height: 20px; border-radius: 3px; overflow: hidden;'>"
+"<div id='ch3_bar' style='background: #2196F3; height: 100%; width: 0%; transition: width 0.1s;'></div>"
+"</div>"
+"</div>"
+"<div style='margin: 12px 0;'>"
+"<div style='display: flex; justify-content: space-between; margin-bottom: 4px;'>"
+"<span style='font-weight: bold; color: #555;'>Channel 4:</span>"
+"<span id='ch4_val' style='font-family: monospace; color: #2196F3;'>0/4095</span>"
+"</div>"
+"<div style='background: #e0e0e0; height: 20px; border-radius: 3px; overflow: hidden;'>"
+"<div id='ch4_bar' style='background: #2196F3; height: 100%; width: 0%; transition: width 0.1s;'></div>"
+"</div>"
+"</div>"
+"<div style='margin: 12px 0;'>"
+"<div style='display: flex; justify-content: space-between; margin-bottom: 4px;'>"
+"<span style='font-weight: bold; color: #555;'>Channel 5:</span>"
+"<span id='ch5_val' style='font-family: monospace; color: #2196F3;'>0/4095</span>"
+"</div>"
+"<div style='background: #e0e0e0; height: 20px; border-radius: 3px; overflow: hidden;'>"
+"<div id='ch5_bar' style='background: #2196F3; height: 100%; width: 0%; transition: width 0.1s;'></div>"
+"</div>"
+"</div>"
+"<div style='margin: 12px 0;'>"
+"<div style='display: flex; justify-content: space-between; margin-bottom: 4px;'>"
+"<span style='font-weight: bold; color: #555;'>Channel 6:</span>"
+"<span id='ch6_val' style='font-family: monospace; color: #2196F3;'>0/4095</span>"
+"</div>"
+"<div style='background: #e0e0e0; height: 20px; border-radius: 3px; overflow: hidden;'>"
+"<div id='ch6_bar' style='background: #2196F3; height: 100%; width: 0%; transition: width 0.1s;'></div>"
+"</div>"
+"</div>"
+"</div>"
+"<h3 style='margin-top: 20px; margin-bottom: 10px;'>Lights</h3>"
+"<div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;'>"
+"<div style='text-align: center;'>"
+"<div id='light1' style='width: 60px; height: 60px; margin: 0 auto 8px; border-radius: 50%; background: #ccc; border: 2px solid #999; transition: all 0.1s;'></div>"
+"<span style='font-weight: bold; color: #555;'>Light 1</span>"
+"</div>"
+"<div style='text-align: center;'>"
+"<div id='light2' style='width: 60px; height: 60px; margin: 0 auto 8px; border-radius: 50%; background: #ccc; border: 2px solid #999; transition: all 0.1s;'></div>"
+"<span style='font-weight: bold; color: #555;'>Light 2</span>"
+"</div>"
+"<div style='text-align: center;'>"
+"<div id='light3' style='width: 60px; height: 60px; margin: 0 auto 8px; border-radius: 50%; background: #ccc; border: 2px solid #999; transition: all 0.1s;'></div>"
+"<span style='font-weight: bold; color: #555;'>Light 3</span>"
+"</div>"
+"<div style='text-align: center;'>"
+"<div id='light4' style='width: 60px; height: 60px; margin: 0 auto 8px; border-radius: 50%; background: #ccc; border: 2px solid #999; transition: all 0.1s;'></div>"
+"<span style='font-weight: bold; color: #555;'>Light 4</span>"
+"</div>"
+"</div>"
+"</div>"
+""
+"<div class='status-section'>"
 "<form id='settingsForm'>"
 "<div class='form-group'>"
 "<label>Device Role:</label>"
@@ -105,21 +184,54 @@ static const char *html_page =
 "<label>ESP-NOW Channel (1-13):</label>"
 "<input type='number' name='channel' min='1' max='13' value='1'>"
 "</div>"
+"<h3>Proportional Channel Calibration</h3>"
 "<div class='form-group'>"
-"<label>Throttle Min:</label>"
-"<input type='number' name='thr_min' min='0' max='4095'>"
+"<label>Channel 1 Min:</label>"
+"<input type='number' name='ch1_min' min='0' max='4095'>"
 "</div>"
 "<div class='form-group'>"
-"<label>Throttle Max:</label>"
-"<input type='number' name='thr_max' min='0' max='4095'>"
+"<label>Channel 1 Max:</label>"
+"<input type='number' name='ch1_max' min='0' max='4095'>"
 "</div>"
 "<div class='form-group'>"
-"<label>Steering Min:</label>"
-"<input type='number' name='str_min' min='0' max='4095'>"
+"<label>Channel 2 Min:</label>"
+"<input type='number' name='ch2_min' min='0' max='4095'>"
 "</div>"
 "<div class='form-group'>"
-"<label>Steering Max:</label>"
-"<input type='number' name='str_max' min='0' max='4095'>"
+"<label>Channel 2 Max:</label>"
+"<input type='number' name='ch2_max' min='0' max='4095'>"
+"</div>"
+"<div class='form-group'>"
+"<label>Channel 3 Min:</label>"
+"<input type='number' name='ch3_min' min='0' max='4095'>"
+"</div>"
+"<div class='form-group'>"
+"<label>Channel 3 Max:</label>"
+"<input type='number' name='ch3_max' min='0' max='4095'>"
+"</div>"
+"<div class='form-group'>"
+"<label>Channel 4 Min:</label>"
+"<input type='number' name='ch4_min' min='0' max='4095'>"
+"</div>"
+"<div class='form-group'>"
+"<label>Channel 4 Max:</label>"
+"<input type='number' name='ch4_max' min='0' max='4095'>"
+"</div>"
+"<div class='form-group'>"
+"<label>Channel 5 Min:</label>"
+"<input type='number' name='ch5_min' min='0' max='4095'>"
+"</div>"
+"<div class='form-group'>"
+"<label>Channel 5 Max:</label>"
+"<input type='number' name='ch5_max' min='0' max='4095'>"
+"</div>"
+"<div class='form-group'>"
+"<label>Channel 6 Min:</label>"
+"<input type='number' name='ch6_min' min='0' max='4095'>"
+"</div>"
+"<div class='form-group'>"
+"<label>Channel 6 Max:</label>"
+"<input type='number' name='ch6_max' min='0' max='4095'>"
 "</div>"
 "<div class='form-group'>"
 "<label>Rate Mode:</label>"
@@ -152,6 +264,30 @@ static const char *html_page =
 "      connStatus.className = 'status-value status-disconnected';"
 "      rssiValue.textContent = 'N/A';"
 "    }"
+"    "
+"    // Update channel bars and values"
+"    for (let i = 0; i < 6; i++) {"
+"      const chNum = i + 1;"
+"      const val = d.ch[i];"
+"      const pct = (val / 4095 * 100).toFixed(0);"
+"      document.getElementById('ch' + chNum + '_val').textContent = val + '/4095';"
+"      document.getElementById('ch' + chNum + '_bar').style.width = pct + '%';"
+"    }"
+"    "
+"    // Update light indicators"
+"    for (let i = 0; i < 4; i++) {"
+"      const lightEl = document.getElementById('light' + (i + 1));"
+"      const isOn = (d.lights & (1 << i)) ? true : false;"
+"      if (isOn) {"
+"        lightEl.style.background = '#FFD700';"
+"        lightEl.style.borderColor = '#FFA500';"
+"        lightEl.style.boxShadow = '0 0 10px rgba(255, 215, 0, 0.8)';"
+"      } else {"
+"        lightEl.style.background = '#ccc';"
+"        lightEl.style.borderColor = '#999';"
+"        lightEl.style.boxShadow = 'none';"
+"      }"
+"    }"
 "  })"
 "  .catch(e => console.log('Status fetch error'));"
 "}, 500);"
@@ -176,10 +312,10 @@ static const char *html_page =
 "  document.querySelector('[name=device_role]').value = d.device_role;"
 "  document.querySelector('[name=peer_mac]').value = d.peer_mac;"
 "  document.querySelector('[name=channel]').value = d.channel;"
-"  document.querySelector('[name=thr_min]').value = d.throttle_min;"
-"  document.querySelector('[name=thr_max]').value = d.throttle_max;"
-"  document.querySelector('[name=str_min]').value = d.steering_min;"
-"  document.querySelector('[name=str_max]').value = d.steering_max;"
+"  for (let i = 1; i <= 6; i++) {"
+"    document.querySelector('[name=ch' + i + '_min]').value = d['ch' + i + '_min'];"
+"    document.querySelector('[name=ch' + i + '_max]').value = d['ch' + i + '_max'];"
+"  }"
 "  document.querySelector('[name=rate_mode]').value = d.rate_mode;"
 "});"
 "</script>"
@@ -201,7 +337,7 @@ static esp_err_t handler_captive_portal(httpd_req_t *req) {
 }
 
 static esp_err_t handler_get_settings(httpd_req_t *req) {
-    char response[512];
+    char response[1024];
     char mac_str[18];
     snprintf(mac_str, sizeof(mac_str), "%02x:%02x:%02x:%02x:%02x:%02x",
              g_settings->peer_mac[0], g_settings->peer_mac[1], g_settings->peer_mac[2],
@@ -212,15 +348,21 @@ static esp_err_t handler_get_settings(httpd_req_t *req) {
              "\"device_role\":%d,"
              "\"peer_mac\":\"%s\","
              "\"channel\":%d,"
-             "\"throttle_min\":%d,"
-             "\"throttle_max\":%d,"
-             "\"steering_min\":%d,"
-             "\"steering_max\":%d,"
+             "\"ch1_min\":%d,\"ch1_max\":%d,"
+             "\"ch2_min\":%d,\"ch2_max\":%d,"
+             "\"ch3_min\":%d,\"ch3_max\":%d,"
+             "\"ch4_min\":%d,\"ch4_max\":%d,"
+             "\"ch5_min\":%d,\"ch5_max\":%d,"
+             "\"ch6_min\":%d,\"ch6_max\":%d,"
              "\"rate_mode\":%d"
              "}",
              g_settings->device_role, mac_str, g_settings->channel,
-             g_settings->throttle_min, g_settings->throttle_max,
-             g_settings->steering_min, g_settings->steering_max,
+             g_settings->ch_min[0], g_settings->ch_max[0],
+             g_settings->ch_min[1], g_settings->ch_max[1],
+             g_settings->ch_min[2], g_settings->ch_max[2],
+             g_settings->ch_min[3], g_settings->ch_max[3],
+             g_settings->ch_min[4], g_settings->ch_max[4],
+             g_settings->ch_min[5], g_settings->ch_max[5],
              g_settings->rate_mode);
 
     httpd_resp_set_type(req, "application/json");
@@ -228,16 +370,21 @@ static esp_err_t handler_get_settings(httpd_req_t *req) {
 }
 
 static esp_err_t handler_get_status(httpd_req_t *req) {
-    char response[256];
+    char response[512];
     connection_status_t status = get_connection_status();
+    control_packet_t pkt = get_last_control_packet();
     
     snprintf(response, sizeof(response),
              "{"
              "\"connected\":%d,"
              "\"rssi\":%d,"
-             "\"last_packet\":%lu"
+             "\"last_packet\":%lu,"
+             "\"ch\":[%u,%u,%u,%u,%u,%u],"
+             "\"lights\":%u"
              "}",
-             status.connected, status.rssi, status.last_packet);
+             status.connected, status.rssi, status.last_packet,
+             pkt.ch[0], pkt.ch[1], pkt.ch[2], pkt.ch[3], pkt.ch[4], pkt.ch[5],
+             pkt.lights);
 
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_send(req, response, strlen(response));
@@ -262,10 +409,21 @@ static esp_err_t handler_post_settings(httpd_req_t *req) {
     }
     
     sscanf(buffer, "\"channel\":%hhu", &g_settings->channel);
-    sscanf(buffer, "\"thr_min\":%hu", &g_settings->throttle_min);
-    sscanf(buffer, "\"thr_max\":%hu", &g_settings->throttle_max);
-    sscanf(buffer, "\"str_min\":%hu", &g_settings->steering_min);
-    sscanf(buffer, "\"str_max\":%hu", &g_settings->steering_max);
+    
+    // Parse calibration for all 6 channels
+    for (int i = 0; i < 6; i++) {
+        char key_min[16], key_max[16];
+        snprintf(key_min, sizeof(key_min), "\"ch%d_min\"", i + 1);
+        snprintf(key_max, sizeof(key_max), "\"ch%d_max\"", i + 1);
+        
+        char pattern_min[32], pattern_max[32];
+        snprintf(pattern_min, sizeof(pattern_min), "%s:%%hu", key_min);
+        snprintf(pattern_max, sizeof(pattern_max), "%s:%%hu", key_max);
+        
+        sscanf(buffer, pattern_min, &g_settings->ch_min[i]);
+        sscanf(buffer, pattern_max, &g_settings->ch_max[i]);
+    }
+    
     sscanf(buffer, "\"rate_mode\":%hhu", &g_settings->rate_mode);
 
     settings_save(g_settings);

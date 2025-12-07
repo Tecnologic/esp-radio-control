@@ -28,9 +28,11 @@ static void adc_init(void) {
         .bitwidth = ADC_BITWIDTH_DEFAULT,
         .atten = ADC_ATTEN_DB_12,
     };
-    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_unit, ADC_THROTTLE_CHANNEL, &chan_cfg));
-    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_unit, ADC_STEERING_CHANNEL, &chan_cfg));
-    ESP_LOGI(TAG, "ADC initialized");
+    // Configure all 6 ADC channels
+    for (int i = 0; i < 6; i++) {
+        ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_unit, (adc_channel_t)i, &chan_cfg));
+    }
+    ESP_LOGI(TAG, "ADC initialized for 6 channels");
 }
 
 static void sender_task(void *arg) {
@@ -52,15 +54,16 @@ static void sender_task(void *arg) {
     adc_init();
 
     while (1) {
-        int throttle_raw = 0, steering_raw = 0;
-        ESP_ERROR_CHECK(adc_oneshot_read(adc_unit, ADC_THROTTLE_CHANNEL, &throttle_raw));
-        ESP_ERROR_CHECK(adc_oneshot_read(adc_unit, ADC_STEERING_CHANNEL, &steering_raw));
+        int ch_raw[6] = {0};
+        for (int i = 0; i < 6; i++) {
+            ESP_ERROR_CHECK(adc_oneshot_read(adc_unit, (adc_channel_t)i, &ch_raw[i]));
+        }
 
-        control_packet_t pkt = {
-            .throttle = (uint16_t)throttle_raw,
-            .steering = (uint16_t)steering_raw,
-            .lights = shared_light_states,
-        };
+        control_packet_t pkt = {0};
+        for (int i = 0; i < 6; i++) {
+            pkt.ch[i] = (uint16_t)ch_raw[i];
+        }
+        pkt.lights = shared_light_states;
 
         esp_err_t err = esp_now_send(peer_mac, (uint8_t *)&pkt, sizeof(pkt));
         if (err != ESP_OK) {
