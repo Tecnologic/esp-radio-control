@@ -17,18 +17,18 @@
 #define ESPNOW_LMK "lmk1234567890"
 #endif
 
-// Pin definitions - Sender
-#define PIN_BUTTON_LIGHT 4      // GPIO4 - light button (sender)
-#define PIN_BUTTON_RATE 5       // GPIO5 - rate switch (sender)
+// LOLIN S2 Mini Pin Definitions
+#define PIN_USER_BUTTON 0       // GPIO0 - User button (active-low, boot button)
+#define PIN_LED 15              // GPIO15 - Status LED
 
-// Pin definitions - Receiver
-#define PIN_SERVO_THROTTLE 6    // GPIO6 - servo 1 (receiver)
-#define PIN_SERVO_STEERING 7    // GPIO7 - servo 2 (receiver)
-#define PIN_LIGHT_OUTPUT 3      // GPIO3 - light output (receiver)
+// ADC channels (ESP32-S2 has ADC1 and ADC2)
+// Common ADC pins on S2 Mini: GPIO1-GPIO10 (ADC1), GPIO11-GPIO20 (ADC2)
+#define ADC_THROTTLE_CHANNEL ADC_CHANNEL_0 // GPIO1 (ADC1_CH0)
+#define ADC_STEERING_CHANNEL ADC_CHANNEL_1 // GPIO2 (ADC1_CH1)
 
-// ADC channels (ESP32-C3 oneshot on ADC1)
-#define ADC_THROTTLE_CHANNEL ADC_CHANNEL_0 // GPIO0 default, adapt
-#define ADC_STEERING_CHANNEL ADC_CHANNEL_1 // GPIO1 default, adapt
+// Servo output pins (PWM via LEDC)
+#define PIN_SERVO_THROTTLE 4    // GPIO4 - Servo 1 PWM
+#define PIN_SERVO_STEERING 5    // GPIO5 - Servo 2 PWM
 
 // Servo parameters
 #define SERVO_FREQ_HZ 50           // 20 ms period
@@ -47,8 +47,11 @@ typedef struct __attribute__((packed)) {
     uint8_t button_rate;  // 0/1
 } control_packet_t;
 
-// Broadcast MAC address for ESP-NOW
-extern const uint8_t PEER_BROADCAST[6];
+// Role enum for runtime selection
+typedef enum {
+    ROLE_RECEIVER = 0,
+    ROLE_SENDER = 1
+} device_role_t;
 
 // Shared initialization functions
 void common_wifi_init(void);

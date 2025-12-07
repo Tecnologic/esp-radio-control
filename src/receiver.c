@@ -12,6 +12,7 @@
 static const char *TAG = "receiver";
 static volatile control_packet_t last_pkt = {0};
 static volatile uint8_t have_pkt = 0;
+static TaskHandle_t receiver_task_handle = NULL;
 
 static void ledc_servo_init(void) {
     ledc_timer_config_t timer = {
@@ -37,16 +38,7 @@ static void ledc_servo_init(void) {
     ch2.channel = LEDC_CHANNEL_1;
     ESP_ERROR_CHECK(ledc_channel_config(&ch1));
     ESP_ERROR_CHECK(ledc_channel_config(&ch2));
-
-    gpio_config_t light_io = {
-        .pin_bit_mask = (1ULL << PIN_LIGHT_OUTPUT),
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = 0,
-        .pull_down_en = 0,
-        .intr_type = GPIO_INTR_DISABLE,
-    };
-    ESP_ERROR_CHECK(gpio_config(&light_io));
-    ESP_LOGI(TAG, "LEDC servos and light output initialized");
+    ESP_LOGI(TAG, "LEDC servos initialized");
 }
 
 static void recv_cb(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
@@ -75,7 +67,6 @@ static void receiver_task(void *arg) {
             ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, duty_ste);
             ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
 
-            gpio_set_level(PIN_LIGHT_OUTPUT, last_pkt.button_light ? 1 : 0);
             have_pkt = 0;
         }
         vTaskDelay(pdMS_TO_TICKS(10));
@@ -83,5 +74,18 @@ static void receiver_task(void *arg) {
 }
 
 void receiver_start(void) {
-    xTaskCreate(receiver_task, "receiver", 4096, NULL, 5, NULL);
+    if (receiver_task_handle != NULL) {
+        ESP_LOGW(TAG, "Receiver already running");
+        return;
+    }
+    
+    xTaskCreate(receiver_task, "receiver", 4096, NULL, 5, &receiver_task_handle);
+}
+
+void receiver_stop(void) {
+    if (receiver_task_handle != NULL) {
+        vTaskDelete(receiver_task_handle);
+        receiver_task_handle = NULL;
+        ESP_LOGI(TAG, "Receiver stopped");
+    }
 }
