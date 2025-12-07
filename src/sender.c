@@ -19,6 +19,16 @@ void sender_set_light_states(uint8_t states) {
     shared_light_states = states;
 }
 
+static void send_cb(const wifi_tx_info_t *info, esp_now_send_status_t status) {
+    // Update connection status based on send success
+    // RSSI is not available for sender, use a placeholder value
+    if (status == ESP_NOW_SEND_SUCCESS) {
+        update_connection_status(true, -50);  // Placeholder RSSI for successful send
+    } else {
+        update_connection_status(false, -120);
+    }
+}
+
 static void adc_init(void) {
     if (adc_initialized) {
         ESP_LOGI(TAG, "ADC already initialized");
@@ -44,6 +54,9 @@ static void adc_init(void) {
 
 static void sender_task(void *arg) {
     const uint8_t *peer_mac = (const uint8_t *)arg;
+    
+    // Register send callback to track connection status
+    ESP_ERROR_CHECK(esp_now_register_send_cb(send_cb));
     
     // Add peer (or update if it already exists)
     esp_now_peer_info_t peer = {0};
