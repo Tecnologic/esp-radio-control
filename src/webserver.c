@@ -4,7 +4,6 @@
 #include "esp_http_server.h"
 #include "esp_wifi.h"
 #include "esp_netif.h"
-#include "mdns.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -375,12 +374,8 @@ void webserver_start(device_settings_t *settings) {
 
     ESP_LOGI(TAG, "Webserver started on http://192.168.4.1");
     
-    // Initialize mDNS for esp-radio-control.local hostname
-    mdns_init();
-    mdns_hostname_set("esp-radio-control");
-    mdns_instance_name_set("ESP-NOW Radio Control");
-    mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
-    ESP_LOGI(TAG, "mDNS service started: esp-radio-control.local");
+    // mDNS is configured in sdkconfig (CONFIG_MDNS_ENABLED=y)
+    // The service is accessible at http://esp-radio-control.local
 }
 
 void webserver_stop(void) {

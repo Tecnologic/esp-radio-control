@@ -10,4 +10,4 @@ set(COMMON_SOURCES
     "webserver.c"
 )
 
-idf_component_register(SRCS ${COMMON_SOURCES} REQUIRES esp_http_server mdns esp_wifi)
+idf_component_register(SRCS ${COMMON_SOURCES})
