@@ -28,9 +28,14 @@ void settings_get_defaults(device_settings_t *settings) {
     for (int i = 0; i < 6; i++) {
         settings->ch_min[i] = 0;
         settings->ch_max[i] = 4095;
+        // Default servo positions for each channel (standard RC servo range)
+        settings->servo_min[i] = 1000;     // 1.0 ms (full left/backward)
+        settings->servo_center[i] = 1500;  // 1.5 ms (neutral)
+        settings->servo_max[i] = 2000;     // 2.0 ms (full right/forward)
+        // Default expo for each channel (0.0 = linear, 1.0 = strong S-curve)
+        settings->expo[i] = 0.0f;
     }
-    settings->rate_mode = 0; // low rate
-    settings->device_role = 0; // receiver by default
+    settings->device_role = 0;      // receiver by default
     settings->is_configured = false;
 }
 
@@ -74,7 +79,29 @@ void settings_load(device_settings_t *settings) {
         }
     }
     
-    nvs_get_u8(handle, "rate_mode", &settings->rate_mode);
+    // Load per-channel servo positions and expo
+    for (int i = 0; i < 6; i++) {
+        char key_smin[16], key_scenter[16], key_smax[16];
+        char key_expo[16];
+        snprintf(key_smin, sizeof(key_smin), "ch%d_smin", i + 1);
+        snprintf(key_scenter, sizeof(key_scenter), "ch%d_sctr", i + 1);
+        snprintf(key_smax, sizeof(key_smax), "ch%d_smax", i + 1);
+        snprintf(key_expo, sizeof(key_expo), "ch%d_expo", i + 1);
+        
+        if (nvs_get_u16(handle, key_smin, &settings->servo_min[i]) != ESP_OK) {
+            settings->servo_min[i] = 1000;
+        }
+        if (nvs_get_u16(handle, key_scenter, &settings->servo_center[i]) != ESP_OK) {
+            settings->servo_center[i] = 1500;
+        }
+        if (nvs_get_u16(handle, key_smax, &settings->servo_max[i]) != ESP_OK) {
+            settings->servo_max[i] = 2000;
+        }
+        if (nvs_get_u32(handle, key_expo, (uint32_t*)&settings->expo[i]) != ESP_OK) {
+            settings->expo[i] = 0.0f;
+        }
+    }
+    
     nvs_get_u8(handle, "dev_role", &settings->device_role);
     
     uint8_t configured = 0;
@@ -101,7 +128,21 @@ void settings_save(const device_settings_t *settings) {
         ESP_ERROR_CHECK(nvs_set_u16(handle, key_max, settings->ch_max[i]));
     }
     
-    ESP_ERROR_CHECK(nvs_set_u8(handle, "rate_mode", settings->rate_mode));
+    // Save per-channel servo positions and expo
+    for (int i = 0; i < 6; i++) {
+        char key_smin[16], key_scenter[16], key_smax[16];
+        char key_expo[16];
+        snprintf(key_smin, sizeof(key_smin), "ch%d_smin", i + 1);
+        snprintf(key_scenter, sizeof(key_scenter), "ch%d_sctr", i + 1);
+        snprintf(key_smax, sizeof(key_smax), "ch%d_smax", i + 1);
+        snprintf(key_expo, sizeof(key_expo), "ch%d_expo", i + 1);
+        
+        ESP_ERROR_CHECK(nvs_set_u16(handle, key_smin, settings->servo_min[i]));
+        ESP_ERROR_CHECK(nvs_set_u16(handle, key_scenter, settings->servo_center[i]));
+        ESP_ERROR_CHECK(nvs_set_u16(handle, key_smax, settings->servo_max[i]));
+        ESP_ERROR_CHECK(nvs_set_u32(handle, key_expo, *(uint32_t*)&settings->expo[i]));
+    }
+    
     ESP_ERROR_CHECK(nvs_set_u8(handle, "dev_role", settings->device_role));
     ESP_ERROR_CHECK(nvs_set_u8(handle, "configured", settings->is_configured ? 1 : 0));
 

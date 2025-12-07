@@ -10,7 +10,12 @@ typedef struct {
     uint8_t channel;              // ESP-NOW channel (1-13)
     uint16_t ch_min[6];           // Min ADC value for each proportional channel
     uint16_t ch_max[6];           // Max ADC value for each proportional channel
-    uint8_t rate_mode;            // 0=low, 1=high
+    // Per-channel servo configuration
+    uint16_t servo_min[6];        // Minimum servo position (µs) for each channel
+    uint16_t servo_center[6];     // Center servo position (µs) for each channel
+    uint16_t servo_max[6];        // Maximum servo position (µs) for each channel
+    // Per-channel expo (input-side S-curve, like Betaflight)
+    float expo[6];                // Expo value (0.0-1.0) for each channel, 0=linear, 1=strong S-curve
     uint8_t device_role;          // 0=receiver, 1=sender
     bool is_configured;           // Has been configured at least once
 } device_settings_t;

@@ -1,5 +1,6 @@
 // Receiver implementation for ESP-NOW radio control
 #include "common.h"
+#include "settings.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -13,6 +14,7 @@ static const char *TAG = "receiver";
 static volatile control_packet_t last_pkt = {0};
 static volatile uint8_t have_pkt = 0;
 static TaskHandle_t receiver_task_handle = NULL;
+static device_settings_t *g_settings = NULL;
 
 static void light_outputs_init(void) {
     gpio_config_t io = {
@@ -75,7 +77,6 @@ static void receiver_task(void *arg) {
     light_outputs_init();
     ESP_LOGI(TAG, "Receiver task started");
 
-    float rate_scale = RATE_LOW_SCALE;
     const uint8_t light_pins[4] = {PIN_LIGHT_OUT1, PIN_LIGHT_OUT2, PIN_LIGHT_OUT3, PIN_LIGHT_OUT4};
     
     while (1) {
@@ -86,11 +87,25 @@ static void receiver_task(void *arg) {
         }
         
         if (have_pkt) {
-            rate_scale = last_pkt.lights & 0x08 ? RATE_HIGH_SCALE : RATE_LOW_SCALE;
-            
-            // Set PWM duty for all 6 proportional channels
+            // Set PWM duty for all 6 proportional channels using per-channel settings
             for (int i = 0; i < 6; i++) {
-                uint32_t us = map_adc_to_us(last_pkt.ch[i], rate_scale);
+                // Use channel's expo (S-curve input sensitivity)
+                float expo;
+                if (g_settings) {
+                    expo = g_settings->expo[i];
+                } else {
+                    expo = 0.0f;
+                }
+                
+                uint32_t us;
+                if (g_settings) {
+                    us = map_adc_to_us_custom(last_pkt.ch[i], expo,
+                                             g_settings->servo_min[i],
+                                             g_settings->servo_center[i],
+                                             g_settings->servo_max[i]);
+                } else {
+                    us = map_adc_to_us(last_pkt.ch[i], 0.0f);
+                }
                 uint32_t duty = servo_us_to_duty(us);
                 ledc_set_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)i, duty);
                 ledc_update_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)i);
@@ -116,6 +131,11 @@ void receiver_start(void) {
     xTaskCreate(receiver_task, "receiver", 4096, NULL, 5, &receiver_task_handle);
 }
 
+void receiver_set_settings(device_settings_t *settings) {
+    g_settings = settings;
+    ESP_LOGI(TAG, "Receiver settings updated: per-channel servo and expo configuration");
+}
+
 void receiver_stop(void) {
     if (receiver_task_handle != NULL) {
         vTaskDelete(receiver_task_handle);
@@ -128,12 +148,22 @@ control_packet_t get_last_control_packet(void) {
     return (control_packet_t)last_pkt;
 }
 
-// Get servo positions in microseconds (1000-2000us) for all channels
-// Returns array of 6 uint16_t values
+// Get servo positions in microseconds for all channels
+// Returns array of 6 uint16_t values using per-channel min/center/max settings
 void get_servo_positions(uint16_t *positions) {
-    float rate_scale = last_pkt.lights & 0x08 ? RATE_HIGH_SCALE : RATE_LOW_SCALE;
+    if (!g_settings) {
+        // Fallback to default if settings not set
+        for (int i = 0; i < 6; i++) {
+            positions[i] = (uint16_t)map_adc_to_us(last_pkt.ch[i], 0.0f);
+        }
+        return;
+    }
+    
     for (int i = 0; i < 6; i++) {
-        positions[i] = (uint16_t)map_adc_to_us(last_pkt.ch[i], rate_scale);
+        positions[i] = (uint16_t)map_adc_to_us_custom(last_pkt.ch[i], g_settings->expo[i],
+                                                       g_settings->servo_min[i],
+                                                       g_settings->servo_center[i],
+                                                       g_settings->servo_max[i]);
     }
 }
 

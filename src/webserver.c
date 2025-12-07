@@ -233,12 +233,46 @@ static const char *html_page =
 "<label>Channel 6 Max:</label>"
 "<input type='number' name='ch6_max' min='0' max='4095'>"
 "</div>"
-"<div class='form-group'>"
-"<label>Rate Mode:</label>"
-"<select name='rate_mode'>"
-"<option value='0'>Low</option>"
-"<option value='1'>High</option>"
-"</select>"
+"<h3>Per-Channel Servo & Rate Configuration</h3>"
+"<div style='background: #f0f0f0; padding: 15px; border-radius: 5px;'>"
+"<div style='display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;'>"
+"<div><strong>Channel 1</strong>"
+"<div><label>Min (µs):</label><input type='number' name='ch1_smin' min='500' max='2500'></div>"
+"<div><label>Center (µs):</label><input type='number' name='ch1_sctr' min='500' max='2500'></div>"
+"<div><label>Max (µs):</label><input type='number' name='ch1_smax' min='500' max='2500'></div>"
+"<div><label>Expo (0.0-1.0):</label><input type='number' name='ch1_expo' min='0' max='1' step='0.05'></div>"
+"</div>"
+"<div><strong>Channel 2</strong>"
+"<div><label>Min (µs):</label><input type='number' name='ch2_smin' min='500' max='2500'></div>"
+"<div><label>Center (µs):</label><input type='number' name='ch2_sctr' min='500' max='2500'></div>"
+"<div><label>Max (µs):</label><input type='number' name='ch2_smax' min='500' max='2500'></div>"
+"<div><label>Expo (0.0-1.0):</label><input type='number' name='ch2_expo' min='0' max='1' step='0.05'></div>"
+"</div>"
+"<div><strong>Channel 3</strong>"
+"<div><label>Min (µs):</label><input type='number' name='ch3_smin' min='500' max='2500'></div>"
+"<div><label>Center (µs):</label><input type='number' name='ch3_sctr' min='500' max='2500'></div>"
+"<div><label>Max (µs):</label><input type='number' name='ch3_smax' min='500' max='2500'></div>"
+"<div><label>Expo (0.0-1.0):</label><input type='number' name='ch3_expo' min='0' max='1' step='0.05'></div>"
+"</div>"
+"<div><strong>Channel 4</strong>"
+"<div><label>Min (µs):</label><input type='number' name='ch4_smin' min='500' max='2500'></div>"
+"<div><label>Center (µs):</label><input type='number' name='ch4_sctr' min='500' max='2500'></div>"
+"<div><label>Max (µs):</label><input type='number' name='ch4_smax' min='500' max='2500'></div>"
+"<div><label>Expo (0.0-1.0):</label><input type='number' name='ch4_expo' min='0' max='1' step='0.05'></div>"
+"</div>"
+"<div><strong>Channel 5</strong>"
+"<div><label>Min (µs):</label><input type='number' name='ch5_smin' min='500' max='2500'></div>"
+"<div><label>Center (µs):</label><input type='number' name='ch5_sctr' min='500' max='2500'></div>"
+"<div><label>Max (µs):</label><input type='number' name='ch5_smax' min='500' max='2500'></div>"
+"<div><label>Expo (0.0-1.0):</label><input type='number' name='ch5_expo' min='0' max='1' step='0.05'></div>"
+"</div>"
+"<div><strong>Channel 6</strong>"
+"<div><label>Min (µs):</label><input type='number' name='ch6_smin' min='500' max='2500'></div>"
+"<div><label>Center (µs):</label><input type='number' name='ch6_sctr' min='500' max='2500'></div>"
+"<div><label>Max (µs):</label><input type='number' name='ch6_smax' min='500' max='2500'></div>"
+"<div><label>Rate (0.0-1.0):</label><input type='number' name='ch6_rate' min='0' max='1' step='0.05'></div>"
+"</div>"
+"</div>"
 "</div>"
 "<button type='submit'>Save Settings</button>"
 "<button type='reset' class='reset'>Reset to Defaults</button>"
@@ -315,8 +349,11 @@ static const char *html_page =
 "  for (let i = 1; i <= 6; i++) {"
 "    document.querySelector('[name=ch' + i + '_min]').value = d['ch' + i + '_min'];"
 "    document.querySelector('[name=ch' + i + '_max]').value = d['ch' + i + '_max'];"
+"    document.querySelector('[name=ch' + i + '_smin]').value = d['ch' + i + '_smin'];"
+"    document.querySelector('[name=ch' + i + '_sctr]').value = d['ch' + i + '_sctr'];"
+"    document.querySelector('[name=ch' + i + '_smax]').value = d['ch' + i + '_smax'];"
+"    document.querySelector('[name=ch' + i + '_expo]').value = d['ch' + i + '_expo'];"
 "  }"
-"  document.querySelector('[name=rate_mode]').value = d.rate_mode;"
 "});"
 "</script>"
 "</body>"
@@ -337,7 +374,7 @@ static esp_err_t handler_captive_portal(httpd_req_t *req) {
 }
 
 static esp_err_t handler_get_settings(httpd_req_t *req) {
-    char response[1024];
+    char response[2048];
     char mac_str[18];
     snprintf(mac_str, sizeof(mac_str), "%02x:%02x:%02x:%02x:%02x:%02x",
              g_settings->peer_mac[0], g_settings->peer_mac[1], g_settings->peer_mac[2],
@@ -354,7 +391,12 @@ static esp_err_t handler_get_settings(httpd_req_t *req) {
              "\"ch4_min\":%d,\"ch4_max\":%d,"
              "\"ch5_min\":%d,\"ch5_max\":%d,"
              "\"ch6_min\":%d,\"ch6_max\":%d,"
-             "\"rate_mode\":%d"
+             "\"ch1_smin\":%u,\"ch1_sctr\":%u,\"ch1_smax\":%u,\"ch1_expo\":%.1f,"
+             "\"ch2_smin\":%u,\"ch2_sctr\":%u,\"ch2_smax\":%u,\"ch2_expo\":%.1f,"
+             "\"ch3_smin\":%u,\"ch3_sctr\":%u,\"ch3_smax\":%u,\"ch3_expo\":%.1f,"
+             "\"ch4_smin\":%u,\"ch4_sctr\":%u,\"ch4_smax\":%u,\"ch4_expo\":%.1f,"
+             "\"ch5_smin\":%u,\"ch5_sctr\":%u,\"ch5_smax\":%u,\"ch5_expo\":%.1f,"
+             "\"ch6_smin\":%u,\"ch6_sctr\":%u,\"ch6_smax\":%u,\"ch6_expo\":%.1f"
              "}",
              g_settings->device_role, mac_str, g_settings->channel,
              g_settings->ch_min[0], g_settings->ch_max[0],
@@ -363,7 +405,18 @@ static esp_err_t handler_get_settings(httpd_req_t *req) {
              g_settings->ch_min[3], g_settings->ch_max[3],
              g_settings->ch_min[4], g_settings->ch_max[4],
              g_settings->ch_min[5], g_settings->ch_max[5],
-             g_settings->rate_mode);
+             g_settings->servo_min[0], g_settings->servo_center[0], g_settings->servo_max[0], 
+             g_settings->expo[0],
+             g_settings->servo_min[1], g_settings->servo_center[1], g_settings->servo_max[1], 
+             g_settings->expo[1],
+             g_settings->servo_min[2], g_settings->servo_center[2], g_settings->servo_max[2], 
+             g_settings->expo[2],
+             g_settings->servo_min[3], g_settings->servo_center[3], g_settings->servo_max[3], 
+             g_settings->expo[3],
+             g_settings->servo_min[4], g_settings->servo_center[4], g_settings->servo_max[4], 
+             g_settings->expo[4],
+             g_settings->servo_min[5], g_settings->servo_center[5], g_settings->servo_max[5], 
+             g_settings->expo[5]);
 
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_send(req, response, strlen(response));
@@ -428,9 +481,31 @@ static esp_err_t handler_post_settings(httpd_req_t *req) {
         sscanf(buffer, pattern_max, &g_settings->ch_max[i]);
     }
     
-    sscanf(buffer, "\"rate_mode\":%hhu", &g_settings->rate_mode);
-
-    settings_save(g_settings);
+    // Parse per-channel servo positions and expo
+    for (int i = 0; i < 6; i++) {
+        char key_smin[16], key_sctr[16], key_smax[16];
+        char key_expo[16];
+        snprintf(key_smin, sizeof(key_smin), "\"ch%d_smin\"", i + 1);
+        snprintf(key_sctr, sizeof(key_sctr), "\"ch%d_sctr\"", i + 1);
+        snprintf(key_smax, sizeof(key_smax), "\"ch%d_smax\"", i + 1);
+        snprintf(key_expo, sizeof(key_expo), "\"ch%d_expo\"", i + 1);
+        
+        char pattern_smin[32], pattern_sctr[32], pattern_smax[32];
+        char pattern_expo[32];
+        snprintf(pattern_smin, sizeof(pattern_smin), "%s:%%hu", key_smin);
+        snprintf(pattern_sctr, sizeof(pattern_sctr), "%s:%%hu", key_sctr);
+        snprintf(pattern_smax, sizeof(pattern_smax), "%s:%%hu", key_smax);
+        snprintf(pattern_expo, sizeof(pattern_expo), "%s:%%f", key_expo);
+        
+        sscanf(buffer, pattern_smin, &g_settings->servo_min[i]);
+        sscanf(buffer, pattern_sctr, &g_settings->servo_center[i]);
+        sscanf(buffer, pattern_smax, &g_settings->servo_max[i]);
+        sscanf(buffer, pattern_expo, &g_settings->expo[i]);
+    }
+    
+    
+    // Update receiver with new settings
+    receiver_set_settings(g_settings);
 
     const char *response = "{\"message\":\"Settings saved\"}";
     httpd_resp_set_type(req, "application/json");

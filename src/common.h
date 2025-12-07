@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "freertos/FreeRTOS.h"
+#include "settings.h"
 
 // ESP-NOW configuration
 #ifndef ESP_NOW_CHANNEL
@@ -84,9 +85,11 @@ void update_connection_status(bool connected, int8_t rssi);
 // Receiver feedback
 control_packet_t get_last_control_packet(void);
 void get_servo_positions(uint16_t *positions); // Get servo positions in microseconds for all 6 channels
+void receiver_set_settings(device_settings_t *settings); // Update receiver with servo/rate settings
 
 // Utility functions
 uint32_t servo_us_to_duty(uint32_t us);
 uint32_t map_adc_to_us(uint16_t adc_raw, float scale);
+uint32_t map_adc_to_us_custom(uint16_t adc_raw, float scale, uint16_t srv_min, uint16_t srv_center, uint16_t srv_max);
 
 #endif // COMMON_H
