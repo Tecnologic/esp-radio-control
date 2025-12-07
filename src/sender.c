@@ -10,15 +10,21 @@
 #include <string.h>
 
 static const char *TAG = "sender";
-static adc_oneshot_unit_handle_t adc_unit;
+static adc_oneshot_unit_handle_t adc_unit = NULL;
 static TaskHandle_t sender_task_handle = NULL;
 static uint8_t shared_light_states = 0; // Will be updated by main task
+static bool adc_initialized = false;
 
 void sender_set_light_states(uint8_t states) {
     shared_light_states = states;
 }
 
 static void adc_init(void) {
+    if (adc_initialized) {
+        ESP_LOGI(TAG, "ADC already initialized");
+        return;
+    }
+    
     adc_oneshot_unit_init_cfg_t unit_cfg = {
         .unit_id = ADC_UNIT_1,
     };
@@ -32,6 +38,7 @@ static void adc_init(void) {
     for (int i = 0; i < 6; i++) {
         ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_unit, (adc_channel_t)i, &chan_cfg));
     }
+    adc_initialized = true;
     ESP_LOGI(TAG, "ADC initialized for 6 channels");
 }
 
