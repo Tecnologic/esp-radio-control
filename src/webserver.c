@@ -2,9 +2,14 @@
 #include "webserver.h"
 #include "esp_log.h"
 #include "esp_http_server.h"
+#include "esp_wifi.h"
+#include "esp_netif.h"
+#include "mdns.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
 
 static const char *TAG = "webserver";
 static httpd_handle_t http_server = NULL;
@@ -186,6 +191,16 @@ static esp_err_t handler_index(httpd_req_t *req) {
     return httpd_resp_send(req, html_page, strlen(html_page));
 }
 
+// Captive portal handler - redirect all unknown requests to main page
+static esp_err_t handler_captive_portal(httpd_req_t *req) {
+    // Return 302 redirect to root
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_type(req, "text/html");
+    httpd_resp_set_hdr(req, "Location", "http://192.168.4.1/");
+    httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
 static esp_err_t handler_get_settings(httpd_req_t *req) {
     char response[512];
     char mac_str[18];
@@ -269,9 +284,48 @@ void webserver_start(device_settings_t *settings) {
 
     g_settings = settings;
 
+    // Switch WiFi to AP mode for configuration
+    ESP_LOGI(TAG, "Switching WiFi to AP mode...");
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    
+    wifi_config_t ap_config = {
+        .ap = {
+            .ssid = "esp-radio-control",
+            .password = "",
+            .ssid_len = strlen("esp-radio-control"),
+            .channel = 1,
+            .authmode = WIFI_AUTH_OPEN,
+            .max_connection = 4,
+        }
+    };
+    
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
+    
+    // Configure DHCP server for AP interface
+    esp_netif_t *netif_ap = esp_netif_get_handle_from_ifkey("WIFI_AP");
+    if (netif_ap != NULL) {
+        esp_netif_dhcps_stop(netif_ap);
+        
+        esp_netif_ip_info_t ip_info;
+        memset(&ip_info, 0, sizeof(ip_info));
+        
+        // Set IP address to 192.168.4.1
+        inet_pton(AF_INET, "192.168.4.1", &ip_info.ip);
+        inet_pton(AF_INET, "255.255.255.0", &ip_info.netmask);
+        inet_pton(AF_INET, "192.168.4.1", &ip_info.gw);
+        
+        esp_netif_set_ip_info(netif_ap, &ip_info);
+        esp_netif_dhcps_start(netif_ap);
+        ESP_LOGI(TAG, "DHCP server started for AP interface");
+    }
+    
+    ESP_ERROR_CHECK(esp_wifi_start());
+    
+    ESP_LOGI(TAG, "WiFi AP started: SSID='esp-radio-control', IP=192.168.4.1, DHCP enabled");
+
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_open_sockets = 2;
-    config.max_uri_handlers = 5;
+    config.max_open_sockets = 4;
+    config.max_uri_handlers = 7;
 
     if (httpd_start(&http_server, &config) != ESP_OK) {
         ESP_LOGE(TAG, "Failed to start webserver");
@@ -310,7 +364,23 @@ void webserver_start(device_settings_t *settings) {
     };
     httpd_register_uri_handler(http_server, &uri_status);
 
+    // Register wildcard handler for captive portal (catch all unknown requests)
+    httpd_uri_t uri_captive = {
+        .uri = "/*",
+        .method = HTTP_GET,
+        .handler = handler_captive_portal,
+        .user_ctx = NULL
+    };
+    httpd_register_uri_handler(http_server, &uri_captive);
+
     ESP_LOGI(TAG, "Webserver started on http://192.168.4.1");
+    
+    // Initialize mDNS for esp-radio-control.local hostname
+    mdns_init();
+    mdns_hostname_set("esp-radio-control");
+    mdns_instance_name_set("ESP-NOW Radio Control");
+    mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
+    ESP_LOGI(TAG, "mDNS service started: esp-radio-control.local");
 }
 
 void webserver_stop(void) {
@@ -318,6 +388,11 @@ void webserver_stop(void) {
         httpd_stop(http_server);
         http_server = NULL;
         ESP_LOGI(TAG, "Webserver stopped");
+        
+        // Switch WiFi back to STA mode for ESP-NOW
+        ESP_LOGI(TAG, "Switching WiFi back to STA mode...");
+        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+        ESP_LOGI(TAG, "WiFi switched to STA mode for ESP-NOW");
     }
 }
 

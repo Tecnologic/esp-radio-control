@@ -88,6 +88,7 @@ static void led_update(void) {
 
 static void control_task(void *arg) {
     uint32_t button_press_count = 0;
+    bool long_press_triggered = false;
     uint8_t light_states = 0; // Bit mask for 4 lights
     uint8_t light_btn_state[4] = {1, 1, 1, 1}; // Track previous state of each light button
     const uint8_t light_pins[4] = {PIN_LIGHT_BTN1, PIN_LIGHT_BTN2, PIN_LIGHT_BTN3, PIN_LIGHT_BTN4};
@@ -96,13 +97,11 @@ static void control_task(void *arg) {
         // Check user button for config mode
         if (gpio_get_level(PIN_USER_BUTTON) == 0) {
             // Button pressed
-            if (button_press_count == 0) {
-                // Start counting
-            }
             button_press_count++;
 
-            // Long press: toggle webserver
-            if (button_press_count > 300) { // ~3 seconds at 10ms poll
+            // Long press: toggle webserver (trigger only once while held)
+            if (button_press_count >= 300 && !long_press_triggered) { // ~3 seconds at 10ms poll
+                long_press_triggered = true;
                 if (webserver_is_running()) {
                     ESP_LOGI(TAG, "Stopping webserver...");
                     webserver_stop();
@@ -110,15 +109,15 @@ static void control_task(void *arg) {
                     ESP_LOGI(TAG, "Starting webserver...");
                     webserver_start(&current_settings);
                 }
-                button_press_count = 0;
             }
         } else {
             // Button released
             if (button_press_count > 0 && button_press_count < 300) {
                 // Short press: do nothing (removed role toggle)
-                ESP_LOGI(TAG, "Short press detected");
+                ESP_LOGI(TAG, "Short press detected (%lu iterations)", button_press_count);
             }
             button_press_count = 0;
+            long_press_triggered = false;
         }
 
         // Check light buttons for toggle
