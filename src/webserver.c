@@ -4,11 +4,10 @@
 #include "esp_http_server.h"
 #include "esp_wifi.h"
 #include "esp_netif.h"
+#include "lwip/inet.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
 
 static const char *TAG = "webserver";
 static httpd_handle_t http_server = NULL;
@@ -467,8 +466,8 @@ static esp_err_t handler_post_settings(httpd_req_t *req) {
     
     sscanf(buffer, "\"channel\":%hhu", &g_settings->channel);
     
-    // Parse calibration for all 6 channels
-    for (int i = 0; i < 6; i++) {
+    // Parse calibration for all channels
+    for (int i = 0; i < NUM_CHANNELS; i++) {
         char key_min[16], key_max[16];
         snprintf(key_min, sizeof(key_min), "\"ch%d_min\"", i + 1);
         snprintf(key_max, sizeof(key_max), "\"ch%d_max\"", i + 1);
@@ -482,7 +481,7 @@ static esp_err_t handler_post_settings(httpd_req_t *req) {
     }
     
     // Parse per-channel servo positions and expo
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < NUM_CHANNELS; i++) {
         char key_smin[16], key_sctr[16], key_smax[16];
         char key_expo[16];
         snprintf(key_smin, sizeof(key_smin), "\"ch%d_smin\"", i + 1);
@@ -536,28 +535,30 @@ void webserver_start(device_settings_t *settings) {
     };
     
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
-    
-    // Configure DHCP server for AP interface
-    esp_netif_t *netif_ap = esp_netif_get_handle_from_ifkey("WIFI_AP");
-    if (netif_ap != NULL) {
-        esp_netif_dhcps_stop(netif_ap);
-        
-        esp_netif_ip_info_t ip_info;
-        memset(&ip_info, 0, sizeof(ip_info));
-        
-        // Set IP address to 192.168.4.1
-        inet_pton(AF_INET, "192.168.4.1", &ip_info.ip);
-        inet_pton(AF_INET, "255.255.255.0", &ip_info.netmask);
-        inet_pton(AF_INET, "192.168.4.1", &ip_info.gw);
-        
-        esp_netif_set_ip_info(netif_ap, &ip_info);
-        esp_netif_dhcps_start(netif_ap);
-        ESP_LOGI(TAG, "DHCP server started for AP interface");
-    }
-    
     ESP_ERROR_CHECK(esp_wifi_start());
     
-    ESP_LOGI(TAG, "WiFi AP started: SSID='esp-radio-control', IP=192.168.4.1, DHCP enabled");
+    ESP_LOGI(TAG, "WiFi started, configuring AP network...");
+    
+    // Now get the AP netif handle (after WiFi is started)
+    esp_netif_t *netif_ap = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+    if (netif_ap == NULL) {
+        ESP_LOGE(TAG, "Failed to get AP netif handle");
+        return;
+    }
+    
+    // Stop DHCP and configure static IP for AP
+    ESP_ERROR_CHECK(esp_netif_dhcps_stop(netif_ap));
+    
+    esp_netif_ip_info_t ip_info;
+    IP4_ADDR(&ip_info.ip, 192, 168, 4, 1);
+    IP4_ADDR(&ip_info.gw, 192, 168, 4, 1);
+    IP4_ADDR(&ip_info.netmask, 255, 255, 255, 0);
+    
+    ESP_ERROR_CHECK(esp_netif_set_ip_info(netif_ap, &ip_info));
+    ESP_ERROR_CHECK(esp_netif_dhcps_start(netif_ap));
+    
+    ESP_LOGI(TAG, "WiFi AP ready: SSID='esp-radio-control', IP=192.168.4.1/24, DHCP enabled");
+    ESP_LOGI(TAG, "Webserver accessible at: http://192.168.4.1");
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.max_open_sockets = 4;
@@ -599,15 +600,6 @@ void webserver_start(device_settings_t *settings) {
         .user_ctx = NULL
     };
     httpd_register_uri_handler(http_server, &uri_status);
-
-    // Register wildcard handler for captive portal (catch all unknown requests)
-    httpd_uri_t uri_captive = {
-        .uri = "/*",
-        .method = HTTP_GET,
-        .handler = handler_captive_portal,
-        .user_ctx = NULL
-    };
-    httpd_register_uri_handler(http_server, &uri_captive);
 
     ESP_LOGI(TAG, "Webserver started on http://192.168.4.1");
     

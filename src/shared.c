@@ -32,6 +32,11 @@ void update_connection_status(bool connected, int8_t rssi) {
 void common_wifi_init(void) {
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
+    
+    // Create default WiFi STA and AP netif (needed for mode switching)
+    esp_netif_create_default_wifi_sta();
+    esp_netif_create_default_wifi_ap();
+    
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
@@ -68,7 +73,7 @@ uint32_t servo_us_to_duty(uint32_t us) {
 }
 
 uint32_t map_adc_to_us(uint16_t adc_raw, float scale) {
-    float norm = (float)adc_raw / 4095.0f; // 0..1
+    float norm = (float)adc_raw / ADC_NORMALIZE; // 0..1
     float span = (float)(SERVO_US_MAX - SERVO_US_MIN) * scale;
     float center = (SERVO_US_MIN + SERVO_US_MAX) * 0.5f;
     // Map: -1..1 around center using steering/throttle proportional
@@ -81,7 +86,7 @@ uint32_t map_adc_to_us(uint16_t adc_raw, float scale) {
 // Map ADC value to servo microseconds using custom min/center/max positions with S-curve expo
 // expo: 0.0 = linear, 1.0 = strong S-curve
 uint32_t map_adc_to_us_custom(uint16_t adc_raw, float expo, uint16_t srv_min, uint16_t srv_center, uint16_t srv_max) {
-    float norm = (float)adc_raw / 4095.0f; // 0..1
+    float norm = (float)adc_raw / ADC_NORMALIZE; // 0..1
     
     // Apply S-curve expo to the normalized input
     norm = apply_expo(norm, expo);

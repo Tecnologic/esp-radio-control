@@ -77,18 +77,18 @@ static void receiver_task(void *arg) {
     light_outputs_init();
     ESP_LOGI(TAG, "Receiver task started");
 
-    const uint8_t light_pins[4] = {PIN_LIGHT_OUT1, PIN_LIGHT_OUT2, PIN_LIGHT_OUT3, PIN_LIGHT_OUT4};
+    const uint8_t light_pins[NUM_LIGHTS] = {PIN_LIGHT_OUT1, PIN_LIGHT_OUT2, PIN_LIGHT_OUT3, PIN_LIGHT_OUT4};
     
     while (1) {
-        // Check for connection timeout (no packet received for 1 second)
+        // Check for connection timeout
         TickType_t now = xTaskGetTickCount();
-        if (get_connection_status().connected && (now - get_connection_status().last_packet > pdMS_TO_TICKS(1000))) {
+        if (get_connection_status().connected && (now - get_connection_status().last_packet > pdMS_TO_TICKS(CONNECTION_TIMEOUT_MS))) {
             update_connection_status(false, -120);
         }
         
         if (have_pkt) {
-            // Set PWM duty for all 6 proportional channels using per-channel settings
-            for (int i = 0; i < 6; i++) {
+            // Set PWM duty for all proportional channels using per-channel settings
+            for (int i = 0; i < NUM_CHANNELS; i++) {
                 // Use channel's expo (S-curve input sensitivity)
                 float expo;
                 if (g_settings) {
@@ -112,7 +112,7 @@ static void receiver_task(void *arg) {
             }
 
             // Set light outputs based on packet bits 0-3
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < NUM_LIGHTS; i++) {
                 gpio_set_level(light_pins[i], (last_pkt.lights & (1 << i)) ? 1 : 0);
             }
 
@@ -152,14 +152,14 @@ control_packet_t get_last_control_packet(void) {
 // Returns array of 6 uint16_t values using per-channel min/center/max settings
 void get_servo_positions(uint16_t *positions) {
     if (!g_settings) {
-        // Fallback to default if settings not set
-        for (int i = 0; i < 6; i++) {
+    // Fallback to default if settings not set
+        for (int i = 0; i < NUM_CHANNELS; i++) {
             positions[i] = (uint16_t)map_adc_to_us(last_pkt.ch[i], 0.0f);
         }
         return;
     }
     
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < NUM_CHANNELS; i++) {
         positions[i] = (uint16_t)map_adc_to_us_custom(last_pkt.ch[i], g_settings->expo[i],
                                                        g_settings->servo_min[i],
                                                        g_settings->servo_center[i],

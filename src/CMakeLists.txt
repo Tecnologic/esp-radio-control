@@ -10,4 +10,5 @@ set(COMMON_SOURCES
     "webserver.c"
 )
 
-idf_component_register(SRCS ${COMMON_SOURCES})
+idf_component_register(SRCS ${COMMON_SOURCES}
+                       REQUIRES esp_http_server esp_wifi nvs_flash driver protocomm)

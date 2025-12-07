@@ -5,6 +5,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "freertos/FreeRTOS.h"
+
+// System configuration (must be defined before settings.h)
+#define NUM_CHANNELS 6             // Number of proportional channels
+#define NUM_LIGHTS 4               // Number of light outputs
+#define PEER_MAC_LEN 6             // MAC address length
+#define PEER_MAC_BROADCAST 0xFF    // Broadcast MAC value
+
 #include "settings.h"
 
 // ESP-NOW configuration
@@ -49,16 +56,20 @@
 // Servo parameters
 #define SERVO_FREQ_HZ 50           // 20 ms period
 #define SERVO_US_MIN 1000          // 1.0 ms
+#define SERVO_US_CENTER 1500       // 1.5 ms
 #define SERVO_US_MAX 2000          // 2.0 ms
 
-// Rate scaling
-#define RATE_LOW_SCALE 0.5f
-#define RATE_HIGH_SCALE 1.0f
+// ADC configuration
+#define ADC_MAX_VALUE 4095         // 12-bit ADC
+#define ADC_NORMALIZE 4095.0f      // For normalization
+
+// Connection timeout
+#define CONNECTION_TIMEOUT_MS 1000 // Timeout for connection loss
 
 // Data packet sent via ESP-NOW
 typedef struct __attribute__((packed)) {
-    uint16_t ch[6];  // 6 proportional channels: 0..4095 (0-100%)
-    uint8_t lights;  // bit 0-3: light states, bit 4-7: reserved
+    uint16_t ch[NUM_CHANNELS];  // Proportional channels: 0..4095 (0-100%)
+    uint8_t lights;             // bit 0-3: light states, bit 4-7: reserved
 } control_packet_t;
 
 // Role enum for runtime selection
@@ -84,12 +95,12 @@ void update_connection_status(bool connected, int8_t rssi);
 
 // Receiver feedback
 control_packet_t get_last_control_packet(void);
-void get_servo_positions(uint16_t *positions); // Get servo positions in microseconds for all 6 channels
-void receiver_set_settings(device_settings_t *settings); // Update receiver with servo/rate settings
+void get_servo_positions(uint16_t *positions); // Get servo positions in microseconds for all channels
+void receiver_set_settings(device_settings_t *settings); // Update receiver with servo/expo settings
 
 // Utility functions
 uint32_t servo_us_to_duty(uint32_t us);
 uint32_t map_adc_to_us(uint16_t adc_raw, float scale);
-uint32_t map_adc_to_us_custom(uint16_t adc_raw, float scale, uint16_t srv_min, uint16_t srv_center, uint16_t srv_max);
+uint32_t map_adc_to_us_custom(uint16_t adc_raw, float expo, uint16_t srv_min, uint16_t srv_center, uint16_t srv_max);
 
 #endif // COMMON_H
