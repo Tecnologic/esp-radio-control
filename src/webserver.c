@@ -21,21 +21,21 @@ static const char *html_page =
 "<meta name='viewport' content='width=device-width, initial-scale=1.0'>"
 "<title>ESP Radio Control</title>"
 "<style>"
-"body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; background: #f5f5f5; }"
-"h1 { color: #333; }"
-"h2 { color: #555; font-size: 1.1em; margin-top: 25px; border-bottom: 2px solid #4CAF50; padding-bottom: 5px; }"
-".form-group { margin: 15px 0; background: white; padding: 15px; border-radius: 5px; }"
-".status-section { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #2196F3; }"
+"body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; background: #1a1a1a; color: #e0e0e0; }"
+"h1 { color: #ffffff; }"
+"h2 { color: #e0e0e0; font-size: 1.1em; margin-top: 25px; border-bottom: 2px solid #4CAF50; padding-bottom: 5px; }"
+".form-group { margin: 15px 0; background: #2a2a2a; padding: 15px; border-radius: 5px; }"
+".status-section { background: #2a2a2a; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #2196F3; }"
 ".status-item { margin: 10px 0; display: flex; justify-content: space-between; align-items: center; }"
-".status-label { font-weight: bold; color: #555; }"
-".status-value { color: #2196F3; font-family: monospace; }"
-".status-connected { color: #4CAF50; }"
-".status-disconnected { color: #f44336; }"
-".led-pattern { margin: 15px 0; padding: 10px; background: #f9f9f9; border-left: 3px solid #FF9800; border-radius: 3px; }"
-".led-state { font-weight: bold; color: #FF9800; }"
-".pattern-timing { font-size: 0.9em; color: #666; font-family: monospace; }"
-"label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }"
-"input[type='text'], input[type='number'], select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }"
+".status-label { font-weight: bold; color: #b0b0b0; }"
+".status-value { color: #64B5F6; font-family: monospace; }"
+".status-connected { color: #66BB6A; }"
+".status-disconnected { color: #EF5350; }"
+".led-pattern { margin: 15px 0; padding: 10px; background: #333333; border-left: 3px solid #FF9800; border-radius: 3px; }"
+".led-state { font-weight: bold; color: #FFB74D; }"
+".pattern-timing { font-size: 0.9em; color: #a0a0a0; font-family: monospace; }"
+"label { display: block; margin-bottom: 5px; font-weight: bold; color: #b0b0b0; }"
+"input[type='text'], input[type='number'], select { width: 100%; padding: 8px; border: 1px solid #444; border-radius: 4px; box-sizing: border-box; background: #333; color: #e0e0e0; }"
 "button { background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 10px; }"
 "button:hover { background: #45a049; }"
 ".reset { background: #f44336; margin-top: 20px; }"
@@ -65,24 +65,19 @@ static const char *html_page =
 "<h2>LED Indicators</h2>"
 "<p style='color: #666; font-size: 0.9em;'>The status LED provides feedback about device operation:</p>"
 "<div class='led-pattern'>"
-"<div class='led-state'>State A: Disconnected + No Webserver</div>"
-"<div class='pattern-timing'>Pattern: ■ 100ms | ■ 100ms | ■ 100ms | ■ 300ms (600ms cycle)</div>"
-"<div style='color: #666; font-size: 0.9em;'>ESP-NOW not connected, webserver is off</div>"
+"<div class='led-state'>State A: Disconnected</div>"
+"<div class='pattern-timing'>Pattern: ■ 1000ms ON | ■ 1000ms OFF (2000ms cycle)</div>"
+"<div style='color: #666; font-size: 0.9em;'>ESP-NOW not receiving packets, normal operation mode</div>"
 "</div>"
 "<div class='led-pattern'>"
-"<div class='led-state'>State B: Connected + No Webserver</div>"
-"<div class='pattern-timing'>Pattern: ■ 500ms | ■ 500ms (1000ms cycle)</div>"
-"<div style='color: #666; font-size: 0.9em;'>Receiving packets from peer, webserver is off</div>"
+"<div class='led-state'>State B: Connected</div>"
+"<div class='pattern-timing'>Pattern: ■ 200ms ON | ■ 200ms OFF (400ms cycle)</div>"
+"<div style='color: #666; font-size: 0.9em;'>Receiving ESP-NOW packets, system operational</div>"
 "</div>"
 "<div class='led-pattern'>"
-"<div class='led-state'>State C: Disconnected + Webserver On</div>"
-"<div class='pattern-timing'>Pattern: ■ 250ms | ■ 250ms (500ms cycle)</div>"
-"<div style='color: #666; font-size: 0.9em;'>No packets received, in configuration mode</div>"
-"</div>"
-"<div class='led-pattern'>"
-"<div class='led-state'>State D: Connected + Webserver On</div>"
-"<div class='pattern-timing'>Pattern: ■ 80ms | ■ 80ms | ■ 80ms | ■ 80ms | ■ 80ms | ■ 200ms (440ms cycle)</div>"
-"<div style='color: #666; font-size: 0.9em;'>Receiving packets and in configuration mode</div>"
+"<div class='led-state'>State C: Webserver Mode</div>"
+"<div class='pattern-timing'>Pattern: ■ 200ms ON | ■ 100ms OFF | ■ 200ms ON | ■ 500ms OFF (1000ms cycle)</div>"
+"<div style='color: #666; font-size: 0.9em;'>Configuration mode active (ESP-NOW stopped)</div>"
 "</div>"
 "</div>"
 ""
@@ -360,16 +355,6 @@ static const char *html_page =
 
 static esp_err_t handler_index(httpd_req_t *req) {
     return httpd_resp_send(req, html_page, strlen(html_page));
-}
-
-// Captive portal handler - redirect all unknown requests to main page
-static esp_err_t handler_captive_portal(httpd_req_t *req) {
-    // Return 302 redirect to root
-    httpd_resp_set_status(req, "302 Found");
-    httpd_resp_set_type(req, "text/html");
-    httpd_resp_set_hdr(req, "Location", "http://192.168.4.1/");
-    httpd_resp_send(req, NULL, 0);
-    return ESP_OK;
 }
 
 static esp_err_t handler_get_settings(httpd_req_t *req) {
