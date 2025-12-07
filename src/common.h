@@ -21,6 +21,12 @@
 #define PIN_USER_BUTTON 0       // GPIO0 - User button (active-low, boot button)
 #define PIN_LED 15              // GPIO15 - Status LED
 
+// Light control buttons (GPIO pins for 4 light channels)
+#define PIN_LIGHT_BTN1 6        // GPIO6 - Light 1 button
+#define PIN_LIGHT_BTN2 7        // GPIO7 - Light 2 button
+#define PIN_LIGHT_BTN3 8        // GPIO8 - Light 3 button
+#define PIN_LIGHT_BTN4 9        // GPIO9 - Light 4 button
+
 // ADC channels (ESP32-S2 has ADC1 and ADC2)
 // Common ADC pins on S2 Mini: GPIO1-GPIO10 (ADC1), GPIO11-GPIO20 (ADC2)
 #define ADC_THROTTLE_CHANNEL ADC_CHANNEL_0 // GPIO1 (ADC1_CH0)
@@ -43,8 +49,7 @@
 typedef struct __attribute__((packed)) {
     uint16_t throttle; // 0..4095
     uint16_t steering; // 0..4095
-    uint8_t button_light; // 0/1
-    uint8_t button_rate;  // 0/1
+    uint8_t lights; // bit 0-3: light states
 } control_packet_t;
 
 // Role enum for runtime selection

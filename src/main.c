@@ -15,6 +15,7 @@ static const char *TAG = "main";
 // Forward declarations
 extern void sender_start(const uint8_t *peer_mac);
 extern void sender_stop(void);
+extern void sender_set_light_states(uint8_t states);
 extern void receiver_start(void);
 extern void receiver_stop(void);
 
@@ -39,7 +40,9 @@ static void led_set(bool on) {
 
 static void button_init(void) {
     gpio_config_t io = {
-        .pin_bit_mask = (1ULL << PIN_USER_BUTTON),
+        .pin_bit_mask = (1ULL << PIN_USER_BUTTON) | (1ULL << PIN_LIGHT_BTN1) | 
+                        (1ULL << PIN_LIGHT_BTN2) | (1ULL << PIN_LIGHT_BTN3) | 
+                        (1ULL << PIN_LIGHT_BTN4),
         .mode = GPIO_MODE_INPUT,
         .pull_up_en = 1,
         .pull_down_en = 0,
@@ -51,9 +54,12 @@ static void button_init(void) {
 static void control_task(void *arg) {
     uint32_t button_press_count = 0;
     uint32_t button_press_start = 0;
+    uint8_t light_states = 0; // Bit mask for 4 lights
+    uint8_t light_btn_state[4] = {1, 1, 1, 1}; // Track previous state of each light button
+    const uint8_t light_pins[4] = {PIN_LIGHT_BTN1, PIN_LIGHT_BTN2, PIN_LIGHT_BTN3, PIN_LIGHT_BTN4};
 
     while (1) {
-        // Check user button
+        // Check user button for config mode
         if (gpio_get_level(PIN_USER_BUTTON) == 0) {
             // Button pressed
             if (button_press_count == 0) {
@@ -92,6 +98,22 @@ static void control_task(void *arg) {
                 settings_save(&current_settings);
             }
             button_press_count = 0;
+        }
+
+        // Check light buttons for toggle
+        for (int i = 0; i < 4; i++) {
+            uint8_t btn_level = gpio_get_level(light_pins[i]);
+            // Detect falling edge (button press, active-low)
+            if (light_btn_state[i] == 1 && btn_level == 0) {
+                // Toggle corresponding light bit
+                light_states ^= (1 << i);
+                ESP_LOGI(TAG, "Light %d toggled, states: 0x%02x", i + 1, light_states);
+                // If running as sender, update light states
+                if (is_running && current_settings.device_role == ROLE_SENDER) {
+                    sender_set_light_states(light_states);
+                }
+            }
+            light_btn_state[i] = btn_level;
         }
 
         // Start/stop appropriate role if not in config mode

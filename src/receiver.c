@@ -14,6 +14,19 @@ static volatile control_packet_t last_pkt = {0};
 static volatile uint8_t have_pkt = 0;
 static TaskHandle_t receiver_task_handle = NULL;
 
+static void light_outputs_init(void) {
+    gpio_config_t io = {
+        .pin_bit_mask = (1ULL << PIN_LIGHT_OUT1) | (1ULL << PIN_LIGHT_OUT2) | 
+                        (1ULL << PIN_LIGHT_OUT3) | (1ULL << PIN_LIGHT_OUT4),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = 0,
+        .pull_down_en = 0,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    ESP_ERROR_CHECK(gpio_config(&io));
+    ESP_LOGI(TAG, "Light outputs initialized");
+}
+
 static void ledc_servo_init(void) {
     ledc_timer_config_t timer = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
@@ -51,12 +64,15 @@ static void recv_cb(const esp_now_recv_info_t *info, const uint8_t *data, int le
 static void receiver_task(void *arg) {
     ESP_ERROR_CHECK(esp_now_register_recv_cb(recv_cb));
     ledc_servo_init();
+    light_outputs_init();
     ESP_LOGI(TAG, "Receiver task started");
 
     float rate_scale = RATE_LOW_SCALE;
+    const uint8_t light_pins[4] = {PIN_LIGHT_OUT1, PIN_LIGHT_OUT2, PIN_LIGHT_OUT3, PIN_LIGHT_OUT4};
+    
     while (1) {
         if (have_pkt) {
-            rate_scale = last_pkt.button_rate ? RATE_HIGH_SCALE : RATE_LOW_SCALE;
+            rate_scale = last_pkt.lights & 0x08 ? RATE_HIGH_SCALE : RATE_LOW_SCALE;
             uint32_t us_throttle = map_adc_to_us(last_pkt.throttle, rate_scale);
             uint32_t us_steering = map_adc_to_us(last_pkt.steering, rate_scale);
             uint32_t duty_thr = servo_us_to_duty(us_throttle);
@@ -66,6 +82,11 @@ static void receiver_task(void *arg) {
             ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
             ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, duty_ste);
             ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+
+            // Set light outputs based on packet bits 0-3
+            for (int i = 0; i < 4; i++) {
+                gpio_set_level(light_pins[i], (last_pkt.lights & (1 << i)) ? 1 : 0);
+            }
 
             have_pkt = 0;
         }

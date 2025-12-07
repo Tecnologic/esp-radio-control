@@ -12,6 +12,11 @@
 static const char *TAG = "sender";
 static adc_oneshot_unit_handle_t adc_unit;
 static TaskHandle_t sender_task_handle = NULL;
+static uint8_t shared_light_states = 0; // Will be updated by main task
+
+void sender_set_light_states(uint8_t states) {
+    shared_light_states = states;
+}
 
 static void adc_init(void) {
     adc_oneshot_unit_init_cfg_t unit_cfg = {
@@ -54,8 +59,7 @@ static void sender_task(void *arg) {
         control_packet_t pkt = {
             .throttle = (uint16_t)throttle_raw,
             .steering = (uint16_t)steering_raw,
-            .button_light = 0,
-            .button_rate = 0,
+            .lights = shared_light_states,
         };
 
         esp_err_t err = esp_now_send(peer_mac, (uint8_t *)&pkt, sizeof(pkt));
