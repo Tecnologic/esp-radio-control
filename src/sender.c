@@ -38,15 +38,22 @@ static void adc_init(void) {
 static void sender_task(void *arg) {
     const uint8_t *peer_mac = (const uint8_t *)arg;
     
-    // Add peer
+    // Add peer (or update if it already exists)
     esp_now_peer_info_t peer = {0};
     memcpy(peer.peer_addr, peer_mac, 6);
     peer.channel = ESP_NOW_CHANNEL;
     peer.ifidx = ESP_IF_WIFI_STA;
     peer.encrypt = false;
     
-    if (esp_now_add_peer(&peer) != ESP_OK) {
-        ESP_LOGW(TAG, "Failed to add peer");
+    // Try to add peer, if it already exists, modify it instead
+    esp_err_t ret = esp_now_add_peer(&peer);
+    if (ret == ESP_ERR_ESPNOW_EXIST) {
+        // Peer already exists, update it
+        ret = esp_now_mod_peer(&peer);
+    }
+    
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to add/modify peer: %s", esp_err_to_name(ret));
         return;
     }
     ESP_LOGI(TAG, "Sender task started");

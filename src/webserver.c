@@ -5,6 +5,9 @@
 #include "esp_http_server.h"
 #include "esp_wifi.h"
 #include "esp_netif.h"
+#include "esp_system.h"
+#include "esp_mac.h"
+#include "esp_chip_info.h"
 #include "lwip/inet.h"
 #include <stdio.h>
 #include <string.h>
@@ -14,18 +17,52 @@ static const char *TAG = "webserver";
 static httpd_handle_t http_server = NULL;
 static device_settings_t *g_settings = NULL;
 
+// Cached device info (initialized once)
+static char g_device_mac[18] = "";
+static char g_chip_model[32] = "";
+static uint32_t g_cores = 0;
+static const char *g_idf_version = "";
+
+static void init_device_info(void) {
+    // Get device MAC address (only once)
+    uint8_t mac[6];
+    esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, mac);
+    if (ret != ESP_OK) {
+        esp_base_mac_addr_get(mac);
+    }
+    snprintf(g_device_mac, sizeof(g_device_mac), "%02x:%02x:%02x:%02x:%02x:%02x",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    
+    // Get chip info (only once)
+    esp_chip_info_t chip_info;
+    esp_chip_info(&chip_info);
+    g_cores = chip_info.cores;
+    
+    if (chip_info.model == CHIP_ESP32) snprintf(g_chip_model, sizeof(g_chip_model), "ESP32");
+    else if (chip_info.model == CHIP_ESP32S2) snprintf(g_chip_model, sizeof(g_chip_model), "ESP32-S2");
+    else if (chip_info.model == CHIP_ESP32S3) snprintf(g_chip_model, sizeof(g_chip_model), "ESP32-S3");
+    else if (chip_info.model == CHIP_ESP32C3) snprintf(g_chip_model, sizeof(g_chip_model), "ESP32-C3");
+    else snprintf(g_chip_model, sizeof(g_chip_model), "Unknown");
+    
+    g_idf_version = esp_get_idf_version();
+}
+
 static esp_err_t handler_index(httpd_req_t *req) {
     return httpd_resp_send(req, html_page, strlen(html_page));
 }
 
 static esp_err_t handler_get_settings(httpd_req_t *req) {
-    char response[2048];
+    char *response = malloc(2048);
+    if (!response) {
+        return httpd_resp_send_500(req);
+    }
+    
     char mac_str[18];
     snprintf(mac_str, sizeof(mac_str), "%02x:%02x:%02x:%02x:%02x:%02x",
              g_settings->peer_mac[0], g_settings->peer_mac[1], g_settings->peer_mac[2],
              g_settings->peer_mac[3], g_settings->peer_mac[4], g_settings->peer_mac[5]);
 
-    snprintf(response, sizeof(response),
+    snprintf(response, 2048,
              "{"
              "\"device_role\":%d,"
              "\"peer_mac\":\"%s\","
@@ -64,41 +101,45 @@ static esp_err_t handler_get_settings(httpd_req_t *req) {
              g_settings->expo[5]);
 
     httpd_resp_set_type(req, "application/json");
-    return httpd_resp_send(req, response, strlen(response));
+    esp_err_t ret = httpd_resp_send(req, response, strlen(response));
+    free(response);
+    return ret;
 }
 
 static esp_err_t handler_get_status(httpd_req_t *req) {
-    char response[768];
-    connection_status_t status = get_connection_status();
+    char *response = malloc(512);
+    if (!response) {
+        return httpd_resp_send_500(req);
+    }
+    
     control_packet_t pkt = get_last_control_packet();
     uint16_t servo_us[6];
     get_servo_positions(servo_us);
     
-    // Get device MAC address
-    uint8_t mac[6];
-    esp_wifi_get_mac(WIFI_IF_STA, mac);
-    char mac_str[18];
-    snprintf(mac_str, sizeof(mac_str), "%02x:%02x:%02x:%02x:%02x:%02x",
-             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    
-    snprintf(response, sizeof(response),
+    snprintf(response, 512,
              "{"
              "\"device_mac\":\"%s\","
-             "\"connected\":%d,"
-             "\"rssi\":%d,"
-             "\"last_packet\":%lu,"
+             "\"chip_model\":\"%s\","
+             "\"cores\":%lu,"
+             "\"idf_version\":\"%s\","
+             "\"free_heap\":%lu,"
              "\"ch\":[%u,%u,%u,%u,%u,%u],"
              "\"servo_us\":[%u,%u,%u,%u,%u,%u],"
              "\"lights\":%u"
              "}",
-             mac_str,
-             status.connected, status.rssi, status.last_packet,
+             g_device_mac,
+             g_chip_model,
+             g_cores,
+             g_idf_version,
+             esp_get_free_heap_size(),
              pkt.ch[0], pkt.ch[1], pkt.ch[2], pkt.ch[3], pkt.ch[4], pkt.ch[5],
              servo_us[0], servo_us[1], servo_us[2], servo_us[3], servo_us[4], servo_us[5],
              pkt.lights);
 
     httpd_resp_set_type(req, "application/json");
-    return httpd_resp_send(req, response, strlen(response));
+    esp_err_t ret = httpd_resp_send(req, response, strlen(response));
+    free(response);
+    return ret;
 }
 
 static esp_err_t handler_post_settings(httpd_req_t *req) {
@@ -109,11 +150,12 @@ static esp_err_t handler_post_settings(httpd_req_t *req) {
     }
 
     // Parse JSON (simple parsing for now)
+    char mac_str[18] = {0};
     if (sscanf(buffer, "{\"device_role\":%hhu,\"peer_mac\":\"%17[^\"]\"", 
-               &g_settings->device_role, (char*)g_settings->peer_mac) > 0) {
+               &g_settings->device_role, mac_str) > 0) {
         // Parse MAC address from string format
         uint8_t mac[6];
-        if (sscanf((char*)g_settings->peer_mac, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+        if (sscanf(mac_str, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
                    &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) == 6) {
             memcpy(g_settings->peer_mac, mac, 6);
         }
@@ -257,6 +299,9 @@ void webserver_start(device_settings_t *settings) {
     httpd_register_uri_handler(http_server, &uri_status);
 
     ESP_LOGI(TAG, "Webserver started on http://192.168.4.1");
+    
+    // Initialize static device info (MAC, chip model, cores, IDF version)
+    init_device_info();
     
     // mDNS is configured in sdkconfig (CONFIG_MDNS_ENABLED=y)
     // The service is accessible at http://esp-radio-control.local
