@@ -128,3 +128,12 @@ control_packet_t get_last_control_packet(void) {
     return (control_packet_t)last_pkt;
 }
 
+// Get servo positions in microseconds (1000-2000us) for all channels
+// Returns array of 6 uint16_t values
+void get_servo_positions(uint16_t *positions) {
+    float rate_scale = last_pkt.lights & 0x08 ? RATE_HIGH_SCALE : RATE_LOW_SCALE;
+    for (int i = 0; i < 6; i++) {
+        positions[i] = (uint16_t)map_adc_to_us(last_pkt.ch[i], rate_scale);
+    }
+}
+

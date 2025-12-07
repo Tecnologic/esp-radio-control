@@ -83,6 +83,7 @@ void update_connection_status(bool connected, int8_t rssi);
 
 // Receiver feedback
 control_packet_t get_last_control_packet(void);
+void get_servo_positions(uint16_t *positions); // Get servo positions in microseconds for all 6 channels
 
 // Utility functions
 uint32_t servo_us_to_duty(uint32_t us);

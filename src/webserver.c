@@ -265,12 +265,12 @@ static const char *html_page =
 "      rssiValue.textContent = 'N/A';"
 "    }"
 "    "
-"    // Update channel bars and values"
+"    // Update channel bars and values (servo microseconds 1000-2000us)"
 "    for (let i = 0; i < 6; i++) {"
 "      const chNum = i + 1;"
-"      const val = d.ch[i];"
-"      const pct = (val / 4095 * 100).toFixed(0);"
-"      document.getElementById('ch' + chNum + '_val').textContent = val + '/4095';"
+"      const us = d.servo_us[i];"
+"      const pct = ((us - 1000) / 1000 * 100).toFixed(0);"
+"      document.getElementById('ch' + chNum + '_val').textContent = us + 'µs';"
 "      document.getElementById('ch' + chNum + '_bar').style.width = pct + '%';"
 "    }"
 "    "
@@ -370,9 +370,11 @@ static esp_err_t handler_get_settings(httpd_req_t *req) {
 }
 
 static esp_err_t handler_get_status(httpd_req_t *req) {
-    char response[512];
+    char response[768];
     connection_status_t status = get_connection_status();
     control_packet_t pkt = get_last_control_packet();
+    uint16_t servo_us[6];
+    get_servo_positions(servo_us);
     
     snprintf(response, sizeof(response),
              "{"
@@ -380,10 +382,12 @@ static esp_err_t handler_get_status(httpd_req_t *req) {
              "\"rssi\":%d,"
              "\"last_packet\":%lu,"
              "\"ch\":[%u,%u,%u,%u,%u,%u],"
+             "\"servo_us\":[%u,%u,%u,%u,%u,%u],"
              "\"lights\":%u"
              "}",
              status.connected, status.rssi, status.last_packet,
              pkt.ch[0], pkt.ch[1], pkt.ch[2], pkt.ch[3], pkt.ch[4], pkt.ch[5],
+             servo_us[0], servo_us[1], servo_us[2], servo_us[3], servo_us[4], servo_us[5],
              pkt.lights);
 
     httpd_resp_set_type(req, "application/json");
